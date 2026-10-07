@@ -1,0 +1,36 @@
+{
+  "name": "harness-manager",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Panoramic agent-harness dashboard: snapshot pipeline + single-file app + local server for visualizing and managing harness elements",
+  "license": "MIT",
+  "scripts": {
+    "pull": "bun scripts/pull.ts",
+    "build": "vite build",
+    "serve": "bun scripts/serve.ts",
+    "dev": "vite",
+    "test": "bun test",
+    "types:check": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "format:check": "prettier --check \"**/*.{json,yml,yaml,css,html}\" --ignore-path .prettierignore",
+    "format:fix": "prettier --write \"**/*.{json,yml,yaml,css,html}\" --ignore-path .prettierignore",
+    "repo:check": "bun run format:check && bun run lint && bun run types:check && bun test"
+  },
+  "dependencies": {
+    "cytoscape": "^3.34.3",
+    "cytoscape-fcose": "^2.2.0"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^4.16.0",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^24.10.1",
+    "ajv": "^8.20.0",
+    "eslint": "^9.28.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.8.3",
+    "vite": "^8.3.2",
+    "vite-plugin-singlefile": "^2.3.3"
+  }
+}

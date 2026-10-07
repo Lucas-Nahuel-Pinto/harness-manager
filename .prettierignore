@@ -1,0 +1,23 @@
+# Dependencies / locks
+node_modules/
+bun.lock
+package-lock.json
+
+# Generated data — written by the pipeline, never hand-formatted
+data/
+dist/
+
+# Env (never commit real credentials)
+.env
+.env.local
+.env.*.local
+
+# Tool session output
+.superpowers/
+*.log
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
