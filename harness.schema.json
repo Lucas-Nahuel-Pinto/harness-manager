@@ -1,0 +1,211 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HarnessSnapshot",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "meta",
+    "skills",
+    "commands",
+    "agents",
+    "mcps",
+    "env",
+    "scripts",
+    "registries",
+    "health",
+    "catalog"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "meta": {
+      "type": "object",
+      "required": ["root", "scannedAt", "toolVersion", "manifest", "warnings"],
+      "additionalProperties": false,
+      "properties": {
+        "root": { "type": "string" },
+        "scannedAt": { "type": "string" },
+        "toolVersion": { "type": "string" },
+        "manifest": { "type": "boolean" },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "tier",
+          "path",
+          "description",
+          "triggers",
+          "refs",
+          "scripts",
+          "evals",
+          "vendored",
+          "registered"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "tier": { "enum": ["T1", "T2", "T3", "T4"] },
+          "path": { "type": "string" },
+          "description": { "type": "string" },
+          "triggers": { "type": "array", "items": { "type": "string" } },
+          "refs": { "type": "array", "items": { "type": "string" } },
+          "scripts": { "type": "array", "items": { "type": "string" } },
+          "evals": { "type": "boolean" },
+          "vendored": { "type": "boolean" },
+          "registered": { "type": "boolean" }
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "path", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "path", "host", "model", "description", "mode", "isMain"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "host": { "enum": ["opencode", "claude"] },
+          "model": { "type": ["string", "null"] },
+          "description": { "type": "string" },
+          "mode": { "type": ["string", "null"] },
+          "isMain": { "type": "boolean" }
+        }
+      }
+    },
+    "mcps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "configFile", "enabled", "envRefs"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "configFile": { "type": "string" },
+          "enabled": { "type": "boolean" },
+          "envRefs": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "env": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "inExample", "inEnv"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "inExample": { "type": "boolean" },
+          "inEnv": { "type": "boolean" }
+        }
+      }
+    },
+    "scripts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "command"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "command": { "type": "string" }
+        }
+      }
+    },
+    "registries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "path", "kind", "entries", "stale"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "kind": { "enum": ["skill-registry", "kata-manifest", "models-catalog"] },
+          "entries": { "type": "integer", "minimum": 0 },
+          "stale": { "type": ["boolean", "null"] }
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "required": ["docs", "ci", "tests"],
+      "additionalProperties": false,
+      "properties": {
+        "docs": {
+          "type": "object",
+          "required": ["agentsMd", "readme"],
+          "additionalProperties": false,
+          "properties": {
+            "agentsMd": { "type": "boolean" },
+            "readme": { "type": "boolean" }
+          }
+        },
+        "ci": {
+          "type": "object",
+          "required": ["workflows", "husky"],
+          "additionalProperties": false,
+          "properties": {
+            "workflows": { "type": "array", "items": { "type": "string" } },
+            "husky": { "type": "boolean" }
+          }
+        },
+        "tests": {
+          "type": "object",
+          "required": ["testScript", "lintScript", "typesScript"],
+          "additionalProperties": false,
+          "properties": {
+            "testScript": { "type": "boolean" },
+            "lintScript": { "type": "boolean" },
+            "typesScript": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "catalog": {
+      "type": "object",
+      "required": ["models"],
+      "additionalProperties": false,
+      "properties": {
+        "models": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "provider"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "provider": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

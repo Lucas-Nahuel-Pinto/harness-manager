@@ -1,0 +1,9 @@
+{
+  "name": "mini-harness",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "bun test",
+    "lint": "eslint ."
+  }
+}

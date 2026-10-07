@@ -1,0 +1,6 @@
+{
+  "skills": ["custom-skills"],
+  "models": {
+    "catalog": ".models.catalog.json"
+  }
+}

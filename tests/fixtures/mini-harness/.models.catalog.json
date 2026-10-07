@@ -1,0 +1,11 @@
+{
+  "models": [
+    {
+      "id": "opencode/demo-model",
+      "name": "demo-model",
+      "provider": "demo",
+      "source": "fixture",
+      "capabilities": []
+    }
+  ]
+}

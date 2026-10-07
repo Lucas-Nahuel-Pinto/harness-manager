@@ -7,7 +7,7 @@ export default antfu({
 
   lessOpinionated: true,
 
-  ignores: ['node_modules', 'dist', '*.min.js', '**/*.md', '.github/**', '.superpowers/**', 'data/**'],
+  ignores: ['node_modules', 'dist', '*.min.js', '**/*.md', '.github/**', '.superpowers/**', 'data/**', 'tests/fixtures/**'],
 
   rules: {
     'no-console': 'off',
