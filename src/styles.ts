@@ -246,6 +246,60 @@ table.matrix { border-collapse: collapse; font-size: 12.5px; width: 100%; }
   color: var(--text); padding: 8px 12px; font-size: 12.5px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
 .toast.error { border-color: rgba(248,81,73,0.6); }
+
+/* ── Fase 5: serve mode (acciones) ─────────────────────────── */
+.badge-ro.serve { color: var(--green); border-color: rgba(63,185,80,0.45); }
+.action:not(:disabled) {
+  cursor: pointer; opacity: 1; color: var(--text);
+  background: var(--panel-2); border-color: var(--border);
+}
+.action:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+.action:disabled { cursor: not-allowed; }
+.mcp-cell { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.mcp-actions { display: flex; gap: 6px; align-items: center; }
+.mcp-toggle { flex: 1; }
+.mcp-hint {
+  font-size: 10.5px; color: var(--amber); line-height: 1.35; cursor: help;
+}
+.mcp-hint code { font-family: var(--mono); font-size: 10px; }
+.run-btn { flex: none; padding: 3px 10px; font-size: 11.5px; }
+.model-select {
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 6px; padding: 2px 6px; font-size: 11.5px; max-width: 190px;
+  font-family: var(--mono);
+}
+.model-select:focus { border-color: var(--accent); outline: none; }
+
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  width: min(780px, 92vw); max-height: 84vh;
+  display: flex; flex-direction: column;
+  padding: 14px 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+}
+.modal-title { margin: 0 0 6px; font-size: 14px; }
+.modal-summary { color: var(--muted); font-size: 12.5px; margin-bottom: 8px; }
+.modal-body { overflow: auto; min-height: 0; }
+.modal-diff {
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.5;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px 10px; overflow: auto; white-space: pre; margin: 0; color: var(--text);
+}
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.modal-confirm {
+  background: var(--accent); color: #0b1220; border: none; border-radius: 6px;
+  padding: 6px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.modal-confirm:hover { filter: brightness(1.1); }
+.modal-cancel {
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 6px; padding: 6px 14px; font-size: 12.5px; cursor: pointer;
+}
+.modal-cancel:hover { border-color: var(--accent); }
 `;
 
 export function injectStyles(): void {

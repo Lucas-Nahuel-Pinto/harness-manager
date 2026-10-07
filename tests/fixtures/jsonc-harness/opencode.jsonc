@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  // comment at top level must survive edits
+  "model": "opencode/demo-model",
+  "mcp": {
+    "alpha": {
+      // inner comment must survive
+      "type": "remote",
+      "url": "https://example.com/mcp/"
+    },
+    "beta": {
+      "type": "local",
+      "command": "bun"
+    }
+  }
+}

@@ -105,7 +105,8 @@ export function scanMcps(root: string, mcpFiles: string[], warnings: string[]): 
         id: `mcp:${configFile}:${name}`,
         name,
         configFile,
-        enabled: true,
+        // opencode honors `enabled: false` in-place; anything else counts as enabled
+        enabled: !def || typeof def !== 'object' || (def as { enabled?: unknown }).enabled !== false,
         envRefs: collectEnvRefs(def),
       });
     }

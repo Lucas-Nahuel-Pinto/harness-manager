@@ -1,8 +1,8 @@
 import type { GraphKind } from '../state.ts';
 import cytoscape from 'cytoscape';
 import fcose from 'cytoscape-fcose';
-import { escapeHtml } from '../components/detail-panel.ts';
-import { agents, commands, graphKindLabels, kindColor, mcps, registries, scripts, skills } from '../model.ts';
+import { escapeHtml } from '../html.ts';
+import { agents, commands, graphKindLabels, kindColor, mcps, meta, registries, scripts, skills } from '../model.ts';
 import { ALL_GRAPH_KINDS, getState, notify, select, setGraphKinds } from '../state.ts';
 
 cytoscape.use(fcose);
@@ -53,6 +53,10 @@ function addEdge(from: string, to: string): void {
 }
 
 function buildGraph(): void {
+  graphNodes.length = 0;
+  nodeById.clear();
+  graphEdges.length = 0;
+  edgeKeys.clear();
   for (const skill of skills) {
     addNode({ id: skill.id, kind: 'skill', label: skill.name, text: `${skill.name} ${skill.path} ${skill.description}`, ownerId: null });
   }
@@ -112,15 +116,28 @@ if (graphNodes.length > 1500) {
 }
 
 const neighbors = new Map<string, Set<string>>();
-for (const { from, to } of graphEdges) {
-  if (!neighbors.has(from)) { neighbors.set(from, new Set()); }
-  if (!neighbors.has(to)) { neighbors.set(to, new Set()); }
-  neighbors.get(from)!.add(to);
-  neighbors.get(to)!.add(from);
+
+function buildNeighbors(): void {
+  neighbors.clear();
+  for (const { from, to } of graphEdges) {
+    if (!neighbors.has(from)) { neighbors.set(from, new Set()); }
+    if (!neighbors.has(to)) { neighbors.set(to, new Set()); }
+    neighbors.get(from)!.add(to);
+    neighbors.get(to)!.add(from);
+  }
 }
+
+buildNeighbors();
 
 let instance: cytoscape.Core | null = null;
 let buildSig = '';
+
+/** Serve-mode rescan: rebuild node/edge/neighborhood caches from the refreshed model. */
+export function rebuildGraph(): void {
+  buildGraph();
+  buildNeighbors();
+  buildSig = '';
+}
 let building = false;
 const posCache = new Map<string, Map<string, Position>>();
 
@@ -139,7 +156,7 @@ window.__hmGraph = graphHook;
 
 function filtersSignature(): string {
   const { search, filters } = getState();
-  return JSON.stringify({ kinds: [...filters.graphKinds].sort(), search });
+  return JSON.stringify({ kinds: [...filters.graphKinds].sort(), search, at: meta.scannedAt });
 }
 
 /**

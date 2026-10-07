@@ -1,6 +1,10 @@
 import { escapeHtml } from '../components/detail-panel.ts';
 import { env, envId, envMatches, mcpMatches, mcps } from '../model.ts';
+import { runStagedAction } from '../refresh.ts';
+import { isServeMode } from '../serve.ts';
 import { getState, select } from '../state.ts';
+
+const CLAUDE_HINT = 'Claude Code no aplica "enabled" en .mcp.json — el flag solo surte efecto en opencode.jsonc';
 
 export function renderMcpEnv(container: HTMLElement): void {
   const state = getState();
@@ -11,11 +15,20 @@ export function renderMcpEnv(container: HTMLElement): void {
     const refs = mcp.envRefs.length > 0
       ? mcp.envRefs.map(ref => `<span class="chip">${escapeHtml(ref)}</span>`).join('')
       : '<span class="muted">sin env refs</span>';
+    const toggle = isServeMode
+      ? `<button class="action mcp-toggle" data-toggle-mcp="${escapeHtml(mcp.id)}">${mcp.enabled ? 'Deshabilitar' : 'Habilitar'}</button>`
+      : '';
+    const hint = isServeMode && mcp.configFile === '.mcp.json'
+      ? `<span class="mcp-hint" title="${escapeHtml(CLAUDE_HINT)}">Claude Code no lee <code>enabled</code> aquí</span>`
+      : '';
     return `
-      <button class="mcp-card" data-select="${escapeHtml(mcp.id)}">
-        <span class="card-head"><span class="card-title">${escapeHtml(mcp.name)}</span><span class="chip">${escapeHtml(mcp.configFile)}</span></span>
-        <span class="card-sub">${refs}</span>
-      </button>`;
+      <div class="mcp-cell">
+        <button class="mcp-card" data-select="${escapeHtml(mcp.id)}">
+          <span class="card-head"><span class="card-title">${escapeHtml(mcp.name)}</span><span class="chip">${escapeHtml(mcp.configFile)}</span></span>
+          <span class="card-sub">${refs}</span>
+        </button>
+        ${toggle}${hint}
+      </div>`;
   }).join('');
 
   const envRows = visibleEnv.map((envVar) => {
@@ -56,5 +69,15 @@ export function renderMcpEnv(container: HTMLElement): void {
 
   container.querySelectorAll<HTMLElement>('[data-select]').forEach((element) => {
     element.addEventListener('click', () => select(element.dataset.select ?? null));
+  });
+  container.querySelectorAll<HTMLButtonElement>('[data-toggle-mcp]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const mcp = mcps.find(entry => entry.id === button.dataset.toggleMcp);
+      if (!mcp) { return; }
+      void runStagedAction(
+        { kind: 'mcp-toggle', payload: { configFile: mcp.configFile, name: mcp.name, enable: !mcp.enabled } },
+        `${mcp.enabled ? 'Deshabilitar' : 'Habilitar'} MCP`,
+      );
+    });
   });
 }

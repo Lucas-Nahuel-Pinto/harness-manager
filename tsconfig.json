@@ -23,6 +23,7 @@
     "src/**/*.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts",
+    "server.ts",
     "vite.config.ts",
     "eslint.config.js"
   ],

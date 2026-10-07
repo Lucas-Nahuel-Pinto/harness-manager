@@ -2,6 +2,8 @@ import type { EnvStatus, GraphKind, TabId } from './state.ts';
 import type { SkillTier } from './types.ts';
 import { escapeHtml, renderDetail } from './components/detail-panel.ts';
 import { agentHosts, graphKindLabels, mcpConfigFiles, meta, warningCount } from './model.ts';
+import { refreshSnapshot } from './refresh.ts';
+import { isServeMode } from './serve.ts';
 import {
   ALL_GRAPH_KINDS,
   getState,
@@ -54,10 +56,8 @@ app.innerHTML = `
     <span class="meta root" title="${escapeHtml(meta.root)}">${escapeHtml(meta.root)}</span>
     <span class="meta" id="freshness"></span>
     <span class="spacer"></span>
-    ${warningCount > 0
-      ? `<button class="warn-badge" id="warn-badge" title="Ver alertas del snapshot">⚠ ${warningCount}</button>`
-      : ''}
-    <span class="badge-ro">modo solo lectura</span>
+    <span id="warn-slot"></span>
+    <span class="badge-ro${isServeMode ? ' serve' : ''}">${isServeMode ? 'modo serve · escritura' : 'modo solo lectura'}</span>
   </header>
   <nav class="tabs" id="tabs"></nav>
   <div class="workspace">
@@ -67,7 +67,7 @@ app.innerHTML = `
       <input id="search" class="search" type="search" placeholder="nombre, ruta o descripción (/)" autocomplete="off" />
       <div id="filter-controls"></div>
       <div class="filter-actions">
-        <button class="action" disabled title="Requiere serve (Fase 5)">Re-scan</button>
+        <button class="action" id="btn-rescan"${isServeMode ? '' : ' disabled'} title="${isServeMode ? 'Re-scanear el harness desde disco' : 'Requiere serve (Fase 5)'}">Re-scan</button>
         <button class="action" disabled title="Correr bun run build en terminal">Build</button>
       </div>
     </nav>
@@ -186,6 +186,15 @@ function applyCollapse(): void {
   detailToggle.title = detailCollapsed ? 'Expandir panel de detalles' : 'Colapsar panel de detalles';
 }
 
+function renderWarnBadge(): void {
+  const slot = document.getElementById('warn-slot');
+  if (!slot) { return; }
+  slot.innerHTML = warningCount > 0
+    ? `<button class="warn-badge" id="warn-badge" title="Ver alertas del snapshot">⚠ ${warningCount}</button>`
+    : '';
+  document.getElementById('warn-badge')?.addEventListener('click', toggleWarnings);
+}
+
 function renderView(): void {
   const { tab } = getState();
   viewEl.classList.toggle('graph-mode', tab === 'graph');
@@ -198,6 +207,7 @@ function renderView(): void {
 }
 
 function render(): void {
+  renderWarnBadge();
   renderTabs();
   renderFilterControls();
   applyCollapse();
@@ -225,7 +235,9 @@ document.getElementById('toggle-detail')?.addEventListener('click', () => {
   setDetailCollapsed(!getState().detailCollapsed);
   resizeGraph();
 });
-document.getElementById('warn-badge')?.addEventListener('click', toggleWarnings);
+document.getElementById('btn-rescan')?.addEventListener('click', () => {
+  void refreshSnapshot();
+});
 window.addEventListener('resize', resizeGraph);
 
 subscribe(render);

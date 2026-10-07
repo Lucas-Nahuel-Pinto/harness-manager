@@ -1,14 +1,11 @@
 import type { ElementRef } from '../model.ts';
+import { escapeHtml } from '../html.ts';
 import { envId, meta, resolveElement } from '../model.ts';
+import { runStagedAction } from '../refresh.ts';
+import { isServeMode } from '../serve.ts';
 import { getState } from '../state.ts';
 
-export function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-}
+export { escapeHtml };
 
 const KIND_LABELS: Record<ElementRef['kind'], string> = {
   skill: 'Skill',
@@ -130,7 +127,7 @@ function renderElement(ref: ElementRef): string {
   }
 
   const pathBlock = path
-    ? `<div class="path-row"><code>${escapeHtml(path)}</code><button class="copy-btn" data-path="${escapeHtml(path)}">Copiar ruta</button></div>`
+    ? `<div class="path-row"><code>${escapeHtml(path)}</code><button class="copy-btn" data-path="${escapeHtml(path)}">Copiar ruta</button>${isServeMode ? `<button class="copy-btn" data-open="${escapeHtml(path)}">Abrir</button>` : ''}</div>`
     : '';
   const descriptionBlock = description ? `<div class="desc">${escapeHtml(description)}</div>` : '';
   const id = ref.kind === 'env' ? envId(ref.element.name) : ref.element.id;
@@ -186,10 +183,15 @@ export function renderDetail(container: HTMLElement): void {
     return;
   }
   container.innerHTML = renderElement(ref);
-  container.querySelectorAll<HTMLButtonElement>('.copy-btn').forEach((button) => {
+  container.querySelectorAll<HTMLButtonElement>('.copy-btn[data-path]').forEach((button) => {
     button.addEventListener('click', () => {
       const fullPath = `${meta.root}/${button.dataset.path ?? ''}`;
       void copyPath(fullPath, button);
+    });
+  });
+  container.querySelectorAll<HTMLButtonElement>('.copy-btn[data-open]').forEach((button) => {
+    button.addEventListener('click', () => {
+      void runStagedAction({ kind: 'open-path', target: button.dataset.open }, 'Abrir archivo');
     });
   });
 }

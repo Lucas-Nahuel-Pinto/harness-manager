@@ -1,44 +1,79 @@
+/* eslint-disable import/no-mutable-exports -- refreshModel() rebinds these on serve-mode rescan; importers read ESM live bindings. */
 import type { AppState, GraphKind } from './state.ts';
-import type { AgentEl, CommandEl, EnvVarEl, McpEl, RegistryEl, ScriptEl, SkillEl } from './types.ts';
-import { snapshot } from './data.ts';
+import type { AgentEl, CatalogModel, CommandEl, EnvVarEl, HealthEl, McpEl, RegistryEl, ScriptEl, SkillEl, SnapshotMeta } from './types.ts';
+import { getSnapshot } from './snapshot.ts';
 
-export const meta = snapshot.meta;
-export const skills: SkillEl[] = snapshot.skills;
-export const commands: CommandEl[] = snapshot.commands;
-export const agents: AgentEl[] = snapshot.agents;
-export const mcps: McpEl[] = snapshot.mcps;
-export const env: EnvVarEl[] = snapshot.env;
-export const scripts: ScriptEl[] = snapshot.scripts;
-export const registries: RegistryEl[] = snapshot.registries;
-export const health = snapshot.health;
-export const catalogModels = snapshot.catalog.models;
-
-export const totals = {
-  skills: skills.length,
-  commands: commands.length,
-  agents: agents.length,
-  mcps: mcps.length,
-  env: env.length,
-  scripts: scripts.length,
-  registries: registries.length,
-};
-
-export const warningCount = meta.warnings.length;
-export const staleRegistries = registries.filter(registry => registry.stale === true);
-
-export const healthRollup = {
-  docs: health.docs.agentsMd && health.docs.readme,
-  ci: health.ci.workflows.length > 0 && health.ci.husky,
-  tests: health.tests.testScript && health.tests.lintScript && health.tests.typesScript,
-};
+// Reassigned by refreshModel() — ESM live bindings keep every view import current after a rescan.
+export let meta: SnapshotMeta;
+export let skills: SkillEl[] = [];
+export let commands: CommandEl[] = [];
+export let agents: AgentEl[] = [];
+export let mcps: McpEl[] = [];
+export let env: EnvVarEl[] = [];
+export let scripts: ScriptEl[] = [];
+export let registries: RegistryEl[] = [];
+export let health: HealthEl;
+export let catalogModels: CatalogModel[] = [];
+export let totals = { skills: 0, commands: 0, agents: 0, mcps: 0, env: 0, scripts: 0, registries: 0 };
+export let warningCount = 0;
+export let staleRegistries: RegistryEl[] = [];
+export let healthRollup = { docs: false, ci: false, tests: false };
+export let mcpConfigFiles: string[] = [];
+export let agentHosts: string[] = [];
+export let modelNames: string[] = [];
 
 function uniqueSorted(values: string[]): string[] {
   return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
-export const mcpConfigFiles = uniqueSorted(mcps.map(mcp => mcp.configFile));
-export const agentHosts = uniqueSorted(agents.map(agent => agent.host));
-export const modelNames = uniqueSorted(catalogModels.map(model => model.name));
+const elementIndex = new Map<string, ElementRef>();
+
+/** Re-derive every selector from the current snapshot (serve-mode rescan / action apply). */
+export function refreshModel(): void {
+  const snapshot = getSnapshot();
+  meta = snapshot.meta;
+  skills = snapshot.skills;
+  commands = snapshot.commands;
+  agents = snapshot.agents;
+  mcps = snapshot.mcps;
+  env = snapshot.env;
+  scripts = snapshot.scripts;
+  registries = snapshot.registries;
+  health = snapshot.health;
+  catalogModels = snapshot.catalog.models;
+
+  totals = {
+    skills: skills.length,
+    commands: commands.length,
+    agents: agents.length,
+    mcps: mcps.length,
+    env: env.length,
+    scripts: scripts.length,
+    registries: registries.length,
+  };
+
+  warningCount = meta.warnings.length;
+  staleRegistries = registries.filter(registry => registry.stale === true);
+  healthRollup = {
+    docs: health.docs.agentsMd && health.docs.readme,
+    ci: health.ci.workflows.length > 0 && health.ci.husky,
+    tests: health.tests.testScript && health.tests.lintScript && health.tests.typesScript,
+  };
+  mcpConfigFiles = uniqueSorted(mcps.map(mcp => mcp.configFile));
+  agentHosts = uniqueSorted(agents.map(agent => agent.host));
+  modelNames = uniqueSorted(catalogModels.map(model => model.name));
+
+  elementIndex.clear();
+  for (const skill of skills) { elementIndex.set(skill.id, { kind: 'skill', element: skill }); }
+  for (const command of commands) { elementIndex.set(command.id, { kind: 'command', element: command }); }
+  for (const agent of agents) { elementIndex.set(agent.id, { kind: 'agent', element: agent }); }
+  for (const mcp of mcps) { elementIndex.set(mcp.id, { kind: 'mcp', element: mcp }); }
+  for (const envVar of env) { elementIndex.set(envId(envVar.name), { kind: 'env', element: envVar }); }
+  for (const script of scripts) { elementIndex.set(script.id, { kind: 'script', element: script }); }
+  for (const registry of registries) { elementIndex.set(registry.id, { kind: 'registry', element: registry }); }
+}
+
+refreshModel();
 
 function contains(query: string, ...fields: (string | null | undefined)[]): boolean {
   if (!query) { return true; }
@@ -124,15 +159,6 @@ export type ElementRef
 export function envId(name: string): string {
   return `env:${name}`;
 }
-
-const elementIndex = new Map<string, ElementRef>();
-for (const skill of skills) { elementIndex.set(skill.id, { kind: 'skill', element: skill }); }
-for (const command of commands) { elementIndex.set(command.id, { kind: 'command', element: command }); }
-for (const agent of agents) { elementIndex.set(agent.id, { kind: 'agent', element: agent }); }
-for (const mcp of mcps) { elementIndex.set(mcp.id, { kind: 'mcp', element: mcp }); }
-for (const envVar of env) { elementIndex.set(envId(envVar.name), { kind: 'env', element: envVar }); }
-for (const script of scripts) { elementIndex.set(script.id, { kind: 'script', element: script }); }
-for (const registry of registries) { elementIndex.set(registry.id, { kind: 'registry', element: registry }); }
 
 export function resolveElement(selectedId: string | null): ElementRef | null {
   if (!selectedId) { return null; }

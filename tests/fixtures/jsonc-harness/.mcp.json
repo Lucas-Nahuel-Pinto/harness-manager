@@ -1,0 +1,9 @@
+{
+  // claude code has no enabled flag — the UI shows a hint for this file
+  "mcpServers": {
+    "gamma": {
+      "command": "npx",
+      "args": ["-y", "context7-mcp"]
+    }
+  }
+}
