@@ -2,7 +2,7 @@ import type { AgentEl } from '../types.ts';
 import { escapeHtml } from '../components/detail-panel.ts';
 import { agentMatches, agents, catalogModels } from '../model.ts';
 import { runStagedAction } from '../refresh.ts';
-import { isServeMode } from '../serve.ts';
+import { actionsEnabled, actionsHint, isFileMode } from '../serve.ts';
 import { getState, select } from '../state.ts';
 
 function modelChip(agent: AgentEl): string {
@@ -11,17 +11,20 @@ function modelChip(agent: AgentEl): string {
     : '<span class="chip warn">sin modelo</span>';
 }
 
-/** Serve mode: model becomes a catalog-backed select (server re-validates on apply). */
+/** Serve/launcher mode: model becomes a catalog-backed select (server re-validates on apply). */
 function modelCell(agent: AgentEl): string {
-  if (!isServeMode) { return modelChip(agent); }
+  if (isFileMode) { return modelChip(agent); }
   const options = catalogModels.map(model => model.id);
   if (agent.model && !options.includes(agent.model)) { options.push(agent.model); }
   if (options.length === 0) { return modelChip(agent); }
+  const canAct = actionsEnabled();
   const selectHtml = options.map((id) => {
     const selected = id === agent.model ? ' selected' : '';
     return `<option value="${escapeHtml(id)}"${selected}>${escapeHtml(id)}</option>`;
   }).join('');
-  return `<select class="model-select" data-agent-model="${escapeHtml(agent.id)}" title="Asignar modelo del agente (catálogo)">${selectHtml}</select>`;
+  const disabled = canAct ? '' : ' disabled';
+  const title = canAct ? 'Asignar modelo del agente (catálogo)' : actionsHint();
+  return `<select class="model-select" data-agent-model="${escapeHtml(agent.id)}" title="${escapeHtml(title)}"${disabled}>${selectHtml}</select>`;
 }
 
 export function renderAgents(container: HTMLElement): void {

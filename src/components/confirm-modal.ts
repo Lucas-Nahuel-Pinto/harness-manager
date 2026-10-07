@@ -5,6 +5,8 @@ interface ModalOptions {
   bodyHtml: string
   confirmLabel?: string
   cancelLabel?: string
+  /** Wire custom controls (e.g. copy buttons) after the overlay is in the DOM. */
+  onMount?: (overlay: HTMLElement) => void
 }
 
 /** Shared overlay dialog. Resolves true on confirm (or the single close button), false on cancel/backdrop/Escape. */
@@ -42,6 +44,7 @@ async function runModal(options: ModalOptions): Promise<boolean> {
     overlay.addEventListener('click', (event) => { if (event.target === overlay) { close(false); } });
     document.addEventListener('keydown', onKeyDown, true);
     document.body.appendChild(overlay);
+    options.onMount?.(overlay);
     overlay.querySelector<HTMLButtonElement>('.modal-confirm')?.focus();
   });
 }
@@ -66,6 +69,19 @@ export async function confirmModal(request: ConfirmRequest): Promise<boolean> {
 }
 
 const MAX_OUTPUT_CHARS = 20_000;
+
+export interface ChoiceRequest {
+  title: string
+  bodyHtml: string
+  confirmLabel?: string
+  cancelLabel?: string
+  onMount?: (overlay: HTMLElement) => void
+}
+
+/** Generic confirm/cancel dialog with arbitrary (already-escaped) body HTML. */
+export async function choiceModal(request: ChoiceRequest): Promise<boolean> {
+  return runModal(request);
+}
 
 /** Read-only output viewer (script runs). */
 export async function alertModal(title: string, text: string): Promise<boolean> {

@@ -3,7 +3,7 @@ import type { HarnessSnapshot } from './types.ts';
 import { alertModal, confirmModal } from './components/confirm-modal.ts';
 import { toast } from './components/toast.ts';
 import { refreshModel } from './model.ts';
-import { apiGet, apiPost, isServeMode } from './serve.ts';
+import { actionsEnabled, apiGet, apiPost } from './serve.ts';
 import { setSnapshot } from './snapshot.ts';
 import { notify } from './state.ts';
 import { rebuildGraph } from './views/graph.ts';
@@ -21,7 +21,7 @@ function failure(body: ApiBody, fallback: string): string {
 
 /** GET /api/snapshot → replace in-memory model + graph, notify renderers. */
 export async function refreshSnapshot(): Promise<void> {
-  if (!isServeMode) { return; }
+  if (!actionsEnabled()) { return; }
   try {
     const body = await apiGet('/api/snapshot');
     if (!body.ok || !body.snapshot) {
@@ -49,7 +49,7 @@ export interface ActionRequest {
  * Returns true when the change was applied (or the action succeeded without a change).
  */
 export async function runStagedAction(request: ActionRequest, title: string): Promise<boolean> {
-  if (!isServeMode) { return false; }
+  if (!actionsEnabled()) { return false; }
   try {
     const first = await apiPost<ApiBody>('/api/action', { kind: request.kind, target: request.target, payload: request.payload });
     if (!first.ok) {
@@ -82,7 +82,7 @@ export async function runStagedAction(request: ActionRequest, title: string): Pr
 
 /** POST /api/run → toast on completion, then show the captured output in a modal. */
 export async function runScriptByName(name: string): Promise<boolean> {
-  if (!isServeMode) { return false; }
+  if (!actionsEnabled()) { return false; }
   try {
     const body = await apiPost<ApiBody>('/api/run', { name });
     const ran = typeof body.output === 'string';

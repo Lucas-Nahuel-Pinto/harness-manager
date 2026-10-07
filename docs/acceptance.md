@@ -8,13 +8,14 @@
 ```bash
 # Harness A — QA boilerplate
 bun run pull --root "C:\Agentic-Quality-Engineer\Projects\bunkai\bunkai-qa-engineering-lpinto"
-bun run build
-bun server.ts --root "C:\Agentic-Quality-Engineer\Projects\bunkai\bunkai-qa-engineering-lpinto"
+bun run serve --root "C:\Agentic-Quality-Engineer\Projects\bunkai\bunkai-qa-engineering-lpinto"
 
 # Harness B — agentic-pm-harness
 bun run pull --root "C:\Agentic-Quality-Engineer\Projects\jira-traceability\agentic-pm-harness"
-bun run build
-bun server.ts --root "C:\Agentic-Quality-Engineer\Projects\jira-traceability\agentic-pm-harness"
+bun run serve --root "C:\Agentic-Quality-Engineer\Projects\jira-traceability\agentic-pm-harness"
+
+# Direct engine (no launcher, no start/stop buttons — Ctrl+C to stop)
+bun run engine --root "C:\path\to\harness"
 ```
 
 Also verify the read-only build: double-click `dist/index.html` (file://) — action buttons must be disabled with the "modo solo lectura" hint.
@@ -110,14 +111,30 @@ Root: `C:\Agentic-Quality-Engineer\Projects\jira-traceability\agentic-pm-harness
 
 ---
 
+## Launcher control (Phase 5.5)
+
+Applies to whichever harness was launched with `bun run serve` (launcher on `127.0.0.1:7397`).
+
+| # | Check | Expected observation | Done | Notes |
+| --- | --- | --- | --- | --- |
+| L1 | Launcher entry | `bun run serve --root <root>` opens `http://127.0.0.1:7397/`; header shows the status dot + **Detener servidor** (engine already running after the build) | [ ] | |
+| L2 | Stop keeps page alive | **Detener servidor** → toast "servidor detenido — la vista queda en solo lectura"; the page stays on the last snapshot; dot turns red; actions (toggle/run/model/Re-scan) disable with the hint | [ ] | |
+| L3 | Start re-enables actions | **Iniciar servidor** → toast "servidor iniciado" + fresh snapshot in place (no reload); dot green; actions work again (e.g. toggle an MCP end-to-end) | [ ] | |
+| L4 | Restart cycle | L2 → L3 works at least twice without reloading the page; `GET /api/status` always matches the dot | [ ] | |
+| L5 | file:// fallback | Open `dist/index.html` via file:// → **Iniciar servidor** probes the launcher: reachable → "Abrir en el launcher" offer; not reachable → modal with copyable `bun run serve --root …` command | [ ] | |
+| L6 | Direct engine unchanged | `bun run engine --root <root>` → own UI on a dynamic port with NO start/stop buttons; badge "modo serve · escritura"; Ctrl+C stops it | [ ] | |
+| L7 | No orphans | After stopping the engine from the UI, `tasklist` shows no leftover `bun server.ts` PID for that root | [ ] | |
+
+---
+
 ## Cross-cutting (both harnesses)
 
 | # | Check | Expected observation | Done | Notes |
 | --- | --- | --- | --- | --- |
-| C1 | Quality gates | `bun run repo:check` green (format → lint → types → 71 tests) | [ ] | |
+| C1 | Quality gates | `bun run repo:check` green (format → lint → types → 85 tests) | [ ] | |
 | C2 | Build | `bun run build` green; `dist/index.html` single-file, double-clickable | [ ] | |
 | C3 | Fail-safe | A failing scan does not overwrite `data/harness.json` (covered by `pull-failsafe` tests) | [ ] | |
-| C4 | Loopback | Server listens on `127.0.0.1` only (printed URL) | [ ] | |
+| C4 | Loopback | Launcher (7397) and engine (dynamic port) listen on `127.0.0.1` only (printed URLs) | [ ] | |
 | C5 | No env values | No `.env` value appears in snapshot, UI, diff, or test output | [ ] | |
 | C6 | MCP limitation | README documents that Claude Code ignores `enabled` in `.mcp.json` (toggle is OpenCode-effective) | [ ] | |
 | C7 | Sanitization | `git grep` for user-specific absolute paths in tracked files → only intentional/functional hits remain | [ ] | |

@@ -2,7 +2,7 @@ import type { ElementRef } from '../model.ts';
 import { escapeHtml } from '../html.ts';
 import { envId, health, meta, resolveElement, scripts, staleRegistries } from '../model.ts';
 import { runStagedAction } from '../refresh.ts';
-import { isServeMode } from '../serve.ts';
+import { actionsEnabled, actionsHint, isFileMode } from '../serve.ts';
 import { getState } from '../state.ts';
 
 export { escapeHtml };
@@ -127,7 +127,11 @@ function renderElement(ref: ElementRef): string {
   }
 
   const pathBlock = path
-    ? `<div class="path-row"><code>${escapeHtml(path)}</code><button class="copy-btn" data-path="${escapeHtml(path)}">Copiar ruta</button>${isServeMode ? `<button class="copy-btn" data-open="${escapeHtml(path)}">Abrir</button>` : ''}</div>`
+    ? `<div class="path-row"><code>${escapeHtml(path)}</code><button class="copy-btn" data-path="${escapeHtml(path)}">Copiar ruta</button>${isFileMode
+      ? ''
+      : actionsEnabled()
+        ? `<button class="copy-btn" data-open="${escapeHtml(path)}">Abrir</button>`
+        : `<button class="copy-btn" disabled title="${escapeHtml(actionsHint())}">Abrir</button>`}</div>`
     : '';
   const descriptionBlock = description ? `<div class="desc">${escapeHtml(description)}</div>` : '';
   const id = ref.kind === 'env' ? envId(ref.element.name) : ref.element.id;

@@ -3,7 +3,8 @@ import type { SkillTier } from './types.ts';
 import { escapeHtml, renderDetail } from './components/detail-panel.ts';
 import { agentHosts, graphKindLabels, mcpConfigFiles, meta, warningCount } from './model.ts';
 import { refreshSnapshot } from './refresh.ts';
-import { isServeMode } from './serve.ts';
+import { actionsEnabled, actionsHint } from './serve.ts';
+import { renderServerControl, startServerControl } from './server-control.ts';
 import {
   ALL_GRAPH_KINDS,
   getState,
@@ -57,7 +58,8 @@ app.innerHTML = `
     <span class="meta" id="freshness"></span>
     <span class="spacer"></span>
     <span id="warn-slot"></span>
-    <span class="badge-ro${isServeMode ? ' serve' : ''}">${isServeMode ? 'modo serve · escritura' : 'modo solo lectura'}</span>
+    <span id="server-control"></span>
+    <span class="badge-ro serve" id="mode-badge">modo serve · escritura</span>
   </header>
   <nav class="tabs" id="tabs"></nav>
   <div class="workspace">
@@ -67,7 +69,7 @@ app.innerHTML = `
       <input id="search" class="search" type="search" placeholder="nombre, ruta o descripción (/)" autocomplete="off" />
       <div id="filter-controls"></div>
       <div class="filter-actions">
-        <button class="action" id="btn-rescan"${isServeMode ? '' : ' disabled'} title="${isServeMode ? 'Re-scanear el harness desde disco' : 'Requiere serve (Fase 5)'}">Re-scan</button>
+        <button class="action" id="btn-rescan" disabled title="Requiere serve (Fase 5)">Re-scan</button>
         <button class="action" disabled title="Correr bun run build en terminal">Build</button>
       </div>
     </nav>
@@ -213,6 +215,12 @@ function render(): void {
   applyCollapse();
   renderView();
   renderDetail(detailBodyEl);
+  renderServerControl();
+  const rescan = document.getElementById('btn-rescan') as HTMLButtonElement | null;
+  if (rescan) {
+    rescan.disabled = !actionsEnabled();
+    rescan.title = actionsEnabled() ? 'Re-scanear el harness desde disco' : actionsHint();
+  }
   document.getElementById('warn-badge')?.classList.toggle('active', getState().showWarnings);
 }
 
@@ -244,3 +252,4 @@ subscribe(render);
 render();
 renderFreshness();
 window.setInterval(renderFreshness, 60_000);
+startServerControl();

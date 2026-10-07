@@ -1,7 +1,7 @@
 import { escapeHtml } from '../components/detail-panel.ts';
 import { registries, registryMatches, scriptMatches, scripts } from '../model.ts';
 import { runScriptByName } from '../refresh.ts';
-import { isServeMode } from '../serve.ts';
+import { actionsEnabled, actionsHint, isFileMode } from '../serve.ts';
 import { getState, select } from '../state.ts';
 
 const REGISTRY_LABELS: Record<string, string> = {
@@ -16,9 +16,10 @@ export function renderScriptsRegistry(container: HTMLElement): void {
   const visibleRegistries = registries.filter(registry => registryMatches(registry, state));
 
   const scriptRows = visibleScripts.map((script) => {
-    const runBtn = isServeMode
-      ? `<button class="action run-btn" data-run="${escapeHtml(script.name)}" title="Ejecuta bun run ${escapeHtml(script.name)} en el harness (30s máximo)">Correr</button>`
-      : '<span class="muted">—</span>';
+    const canAct = actionsEnabled();
+    const runBtn = isFileMode
+      ? '<span class="muted">—</span>'
+      : `<button class="action run-btn" data-run="${escapeHtml(script.name)}" title="${canAct ? `Ejecuta bun run ${escapeHtml(script.name)} en el harness (30s máximo)` : escapeHtml(actionsHint())}"${canAct ? '' : ' disabled'}>Correr</button>`;
     return `
     <tr data-select="${escapeHtml(script.id)}">
       <td class="rowkey">${escapeHtml(script.name)}</td>

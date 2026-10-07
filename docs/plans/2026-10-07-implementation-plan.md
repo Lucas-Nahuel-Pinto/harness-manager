@@ -76,6 +76,24 @@
 
 **Verify:** `bun run serve` against boilerplate: toggle an MCP (diff shown, applied, re-scan reflects it), run `skills:registry` script (output visible), change a subagent model (frontmatter updated); `bun test` green; without `serve` the built HTML shows buttons disabled with the read-only hint.
 
+## Phase 5.5 — Launcher start/stop (option B, user-requested)
+
+**Context:** user asked for a UI button to start/stop the server (`bun run serve`). A browser cannot spawn processes, so the runtime splits in two.
+
+**Tasks**
+
+1. **Launcher** — `launcher.ts` + `src/launcher/app.ts`:
+   - Fixed loopback port **7397** (`--port` / `HM_LAUNCHER_PORT`), serves the built UI forever; routes `GET /` (injects `window.__HM_LAUNCHER__=true;window.__HM_ROOT__`), `GET /api/status`, `POST /api/start`, `POST /api/stop`.
+   - Engine spawn: `bun server.ts --root <root> --port 0` → parse `http://127.0.0.1:<port>` from stdout (≤5s) + poll `GET <url>/api/snapshot` until 200 (≤8s overall, else `spawn_failed` + kill child).
+   - Kill: win32 `taskkill /pid <pid> /T /F`; posix SIGTERM → SIGKILL after 5s. Child-exit watcher flips status to `stopped`, keeps stderr tail on non-zero exit. Launcher `exit` hook kills a still-running engine (no orphans).
+   - DI seam: `createLauncher(root, { spawnEngine, killEngine, distIndex })` → fully testable without processes.
+2. **Engine CORS** (`src/server/cors.ts` + `src/server/app.ts`): `OPTIONS` → 204, `Access-Control-Allow-Origin: *` on every response — the launcher-origin page calls the engine cross-port.
+3. **UI** (`src/serve.ts` `__HM_LAUNCHER__` + `engineBase`/`actionsEnabled()`, `src/server-control.ts`, `src/main.ts`): header control block (status dot + label + Iniciar/Detener), 3s status poll, engine URL from `status.engineUrl` is the source of truth for all API calls; engine stopped → actions disabled + hint, page stays on the last snapshot; start/stop toasts + in-place snapshot refresh (no reload). file:// mode: button probes `127.0.0.1:7397` (reachable → "Abrir en el launcher"; else copyable `bun run serve --root …` command modal). Direct engine mode unchanged (no buttons).
+4. **Scripts**: `serve` → `bun run build && bun launcher.ts`; new `engine` → `bun server.ts`.
+5. **Tests**: `tests/launcher.test.ts` (DI fakes: start/stop/already/spawn_failed/kill_failed/crash watcher/HTML inject/503 + engine CORS preflight) — suite independent of any build.
+
+**Verify:** `repo:check` green; live smoke on a temp mini-harness copy: launcher serves `/` with `__HM_LAUNCHER__`, start → running + snapshot ok, stop → stopped + PID dead (`tasklist`), page alive after stop, restart cycle works; direct `bun run engine` unchanged.
+
 ## Phase 6 — Closeout + acceptance
 
 **Tasks**

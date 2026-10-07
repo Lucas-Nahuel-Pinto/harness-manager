@@ -8,7 +8,8 @@
   "scripts": {
     "pull": "bun scripts/pull.ts",
     "build": "vite build",
-    "serve": "bun run build && bun server.ts",
+    "serve": "bun run build && bun launcher.ts",
+    "engine": "bun server.ts",
     "dev": "vite",
     "test": "bun test",
     "types:check": "tsc --noEmit",

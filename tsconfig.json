@@ -24,6 +24,7 @@
     "scripts/**/*.ts",
     "tests/**/*.ts",
     "server.ts",
+    "launcher.ts",
     "vite.config.ts",
     "eslint.config.js"
   ],

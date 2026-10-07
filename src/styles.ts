@@ -303,6 +303,17 @@ table.matrix { border-collapse: collapse; font-size: 12.5px; width: 100%; }
   border-radius: 6px; padding: 6px 14px; font-size: 12.5px; cursor: pointer;
 }
 .modal-cancel:hover { border-color: var(--accent); }
+.server-ctl { display: inline-flex; align-items: center; gap: 7px; margin-right: 10px; }
+.server-label { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.server-ctl .action { font-size: 11.5px; padding: 3px 10px; }
+.cmd-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.cmd-row code {
+  flex: 1; min-width: 0; font-family: var(--mono); font-size: 11.5px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 8px; overflow-x: auto; white-space: nowrap; color: var(--text);
+}
+.copy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.copy-btn:disabled:hover { color: var(--muted); border-color: var(--border); }
 `;
 
 export function injectStyles(): void {
