@@ -141,7 +141,7 @@ Shell mirrors JTM: collapsible left filter panel, tabs on top, collapsible right
 
 ## 9. Repository and delivery
 
-- Local: `C:\Agentic-Quality-Engineer\Projects\harness\harness-manager`
+- Local: `<repo-root>` (developer-machine checkout; absolute path intentionally omitted for publication)
 - GitHub: `Lucas-Nahuel-Pinto/harness-manager`, **private** until a final anti-BK sanitization pass, then publishable as a portfolio piece.
 - Stack (mirrors JTM): Bun + TypeScript, Vite + singlefile, cytoscape + cytoscape-fcose, ajv, `@antfu/eslint-config`, Prettier.
 - License: MIT.

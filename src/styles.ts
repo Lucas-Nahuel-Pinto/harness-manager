@@ -158,6 +158,9 @@ body {
 .health-card {
   background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
 }
+.health-card.clickable { cursor: pointer; }
+.health-card.clickable:hover { border-color: var(--accent); }
+.health-card.selected { border-color: var(--accent); background: rgba(158,203,255,0.07); }
 .health-head {
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; font-weight: 600; margin-bottom: 6px;

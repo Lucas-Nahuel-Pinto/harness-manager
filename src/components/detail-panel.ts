@@ -1,6 +1,6 @@
 import type { ElementRef } from '../model.ts';
 import { escapeHtml } from '../html.ts';
-import { envId, meta, resolveElement } from '../model.ts';
+import { envId, health, meta, resolveElement, scripts, staleRegistries } from '../model.ts';
 import { runStagedAction } from '../refresh.ts';
 import { isServeMode } from '../serve.ts';
 import { getState } from '../state.ts';
@@ -169,10 +169,80 @@ function renderWarnings(): string {
   `;
 }
 
+const HEALTH_TITLES: Record<string, string> = {
+  docs: 'H · Documentos',
+  ci: 'I · CI',
+  tests: 'J · Tests y gates',
+};
+
+function healthStatusRow(label: string, ok: boolean, pathText: string): string {
+  const chip = ok ? '<span class="chip done">presente</span>' : '<span class="chip todo">ausente</span>';
+  return row(label, `${chip} <code class="mono">${escapeHtml(pathText)}</code>`);
+}
+
+function healthDetail(section: string): string {
+  const title = HEALTH_TITLES[section] ?? 'Columna de salud';
+  const header = `
+    <div class="kind">Columna de salud</div>
+    <h2>${escapeHtml(title)}</h2>
+    <div class="key">health:${escapeHtml(section)}</div>`;
+
+  if (section === 'docs') {
+    return `
+      ${header}
+      ${healthStatusRow('AGENTS.md (o CLAUDE.md)', health.docs.agentsMd, 'AGENTS.md')}
+      ${healthStatusRow('README.md', health.docs.readme, 'README.md')}
+      <div class="desc">Documentos requeridos en la raíz del harness. Esta columna es solo lectura.</div>`;
+  }
+
+  if (section === 'ci') {
+    const workflowChips = health.ci.workflows.length > 0
+      ? chipsBlock('Workflows', health.ci.workflows.map(name => `.github/workflows/${name}`))
+      : '<div class="empty">Sin workflows en .github/workflows/</div>';
+    return `
+      ${header}
+      ${workflowChips}
+      ${healthStatusRow('Husky', health.ci.husky, '.husky/')}
+      <div class="desc">Hooks de git y workflows de CI detectados. Esta columna es solo lectura.</div>`;
+  }
+
+  const gates: [string, boolean, string[]][] = [
+    ['test', health.tests.testScript, ['test']],
+    ['lint', health.tests.lintScript, ['lint', 'lint:check']],
+    ['types', health.tests.typesScript, ['types:check', 'typecheck']],
+  ];
+  const gateRows = gates.map(([label, ok, candidates]) => {
+    const declared = scripts.filter(script => candidates.includes(script.name));
+    const commandBlock = declared.length > 0
+      ? ` <code class="mono">${escapeHtml(declared[0].command)}</code>`
+      : '';
+    return row(label, `${ok ? '<span class="chip done">declarado</span>' : '<span class="chip todo">ausente</span>'}${commandBlock}`);
+  }).join('');
+  const staleRows = staleRegistries.map(registry => `
+    ${row(registry.name, `<code class="mono">${escapeHtml(registry.path)}</code> <span class="chip indeterminate">desactualizado</span>`)}`).join('');
+  const warningItems = meta.warnings
+    .map(warning => `<div class="warning-row">${escapeHtml(warning)}</div>`)
+    .join('');
+
+  return `
+    ${header}
+    ${gateRows}
+    ${staleRows
+      ? `<div class="chips-block"><h3>Registros desactualizados<span class="count-pill">${staleRegistries.length}</span></h3>${staleRows}</div>`
+      : '<div class="desc">Sin registros desactualizados.</div>'}
+    <div class="chips-block"><h3>Alertas del snapshot<span class="count-pill">${meta.warnings.length}</span></h3>
+      <div class="warning-list">${warningItems || '<div class="empty">Sin alertas</div>'}</div>
+    </div>`;
+}
+
 export function renderDetail(container: HTMLElement): void {
   const state = getState();
   if (state.showWarnings) {
     container.innerHTML = renderWarnings();
+    return;
+  }
+  if (state.selectedId?.startsWith('health:')) {
+    container.innerHTML = healthDetail(state.selectedId.slice('health:'.length));
     return;
   }
   const ref = resolveElement(state.selectedId);
