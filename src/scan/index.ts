@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { readMainModel, scanAgents, scanMcps } from './agents.ts';
 import { CONVENTION, loadManifest } from './manifest.ts';
-import { scanCatalog, scanEnv, scanHealth, scanRegistries, scanScripts } from './misc.ts';
+import { refreshModelCatalogIfAvailable, scanCatalog, scanEnv, scanHealth, scanRegistries, scanScripts } from './misc.ts';
 import { registeredSkillNames, scanCommands, scanSkills } from './skills.ts';
 
 export const TOOL_VERSION = '0.1.0';
@@ -45,6 +45,7 @@ export function scanHarness(rootInput: string): ScanResult {
     const scripts = scanScripts(root, warnings);
     const registries = scanRegistries(root, skills.length, warnings);
     const health = scanHealth(root);
+    refreshModelCatalogIfAvailable(root, warnings);
     const catalog = scanCatalog(root, catalogFile, warnings);
 
     const total = skills.length + commands.length + agents.length + mcps.length

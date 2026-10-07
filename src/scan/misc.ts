@@ -1,7 +1,54 @@
 import type { CatalogModel, EnvVarEl, HealthEl, RegistryEl, ScriptEl } from '../types.ts';
+import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseJsonc } from './jsonc.ts';
+
+function detectBoilerplateModelScript(root: string): string | null {
+  const scriptPath = join(root, 'scripts', 'qa-model-selector.ts');
+  if (existsSync(scriptPath)) { return scriptPath; }
+  const pkgPath = join(root, 'package.json');
+  if (existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { scripts?: Record<string, string> };
+      if (pkg.scripts?.['harness-config']) { return 'harness-config'; }
+    }
+    catch { }
+  }
+  return null;
+}
+
+export function refreshModelCatalogIfAvailable(root: string, warnings: string[]): boolean {
+  const detector = detectBoilerplateModelScript(root);
+  if (!detector) { return false; }
+
+  let cmd: string[];
+  if (detector === 'harness-config') {
+    cmd = ['bun', 'run', 'harness-config', 'roles', '--refresh'];
+  }
+  else {
+    cmd = ['bun', detector, '--refresh'];
+  }
+
+  try {
+    const result = spawnSync(cmd[0], cmd.slice(1), {
+      cwd: root,
+      stdio: 'pipe',
+      timeout: 30000,
+      shell: process.platform === 'win32',
+    });
+    if (result.status !== 0) {
+      const stderr = result.stderr?.toString?.() ?? '';
+      warnings.push(`model catalog refresh failed (exit ${result.status}): ${stderr.slice(0, 200)}`);
+      return false;
+    }
+    return true;
+  }
+  catch (e) {
+    warnings.push(`model catalog refresh error: ${e instanceof Error ? e.message : String(e)}`);
+    return false;
+  }
+}
 
 function envKeys(path: string): Set<string> {
   const keys = new Set<string>();
