@@ -1,8 +1,9 @@
-import type { EnvStatus, TabId } from './state.ts';
+import type { EnvStatus, GraphKind, TabId } from './state.ts';
 import type { SkillTier } from './types.ts';
 import { escapeHtml, renderDetail } from './components/detail-panel.ts';
-import { agentHosts, mcpConfigFiles, meta, warningCount } from './model.ts';
+import { agentHosts, graphKindLabels, mcpConfigFiles, meta, warningCount } from './model.ts';
 import {
+  ALL_GRAPH_KINDS,
   getState,
   setDetailCollapsed,
   setEnvStatus,
@@ -11,6 +12,7 @@ import {
   setTab,
   subscribe,
   toggleFlag,
+  toggleGraphKind,
   toggleHost,
   toggleMcpConfig,
   toggleTier,
@@ -18,6 +20,7 @@ import {
 } from './state.ts';
 import { injectStyles } from './styles.ts';
 import { renderAgents } from './views/agents.ts';
+import { renderGraph, resizeGraph } from './views/graph.ts';
 import { renderMcpEnv } from './views/mcp-env.ts';
 import { renderResumen } from './views/resumen.ts';
 import { renderScriptsRegistry } from './views/scripts-registry.ts';
@@ -100,9 +103,7 @@ function renderTabs(): void {
   const { tab } = getState();
   tabsEl.innerHTML = TABS.map(({ id, label }) => {
     const active = id === tab ? ' active' : '';
-    const graph = id === 'graph' ? ' disabled' : '';
-    const title = id === 'graph' ? ' title="Disponible en Fase 4"' : '';
-    return `<button class="tab${active}${graph}" data-tab="${id}"${title}>${label}</button>`;
+    return `<button class="tab${active}" data-tab="${id}">${label}</button>`;
   }).join('');
   tabsEl.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((button) => {
     button.addEventListener('click', () => setTab(button.dataset.tab as TabId));
@@ -142,6 +143,11 @@ function renderFilterControls(): void {
       .map(([value, label]) => radioItem(value, filters.envStatus === value, label))
       .join(''));
   }
+  else if (tab === 'graph') {
+    html = filterGroup('Tipo de nodo', ALL_GRAPH_KINDS
+      .map(kind => checkItem('graphkind', kind, filters.graphKinds.includes(kind), graphKindLabels[kind]))
+      .join(''));
+  }
   filterControlsEl.innerHTML = html;
   filterControlsEl.querySelectorAll<HTMLInputElement>('input[data-filter]').forEach((input) => {
     const kind = input.dataset.filter;
@@ -159,6 +165,9 @@ function renderFilterControls(): void {
     }
     else if (kind === 'env') {
       input.addEventListener('change', () => setEnvStatus(input.value as EnvStatus));
+    }
+    else if (kind === 'graphkind') {
+      input.addEventListener('change', () => toggleGraphKind(input.value as GraphKind));
     }
   });
 }
@@ -179,18 +188,13 @@ function applyCollapse(): void {
 
 function renderView(): void {
   const { tab } = getState();
+  viewEl.classList.toggle('graph-mode', tab === 'graph');
   if (tab === 'resumen') { renderResumen(viewEl); }
   else if (tab === 'skills') { renderSkills(viewEl); }
   else if (tab === 'agents') { renderAgents(viewEl); }
   else if (tab === 'mcp-env') { renderMcpEnv(viewEl); }
   else if (tab === 'scripts') { renderScriptsRegistry(viewEl); }
-  else {
-    viewEl.innerHTML = `
-      <div class="placeholder-tab">
-        <h2>Grafo</h2>
-        <p>Disponible en Fase 4</p>
-      </div>`;
-  }
+  else { renderGraph(viewEl); }
 }
 
 function render(): void {
@@ -215,11 +219,14 @@ document.addEventListener('keydown', (event) => {
 
 document.getElementById('toggle-filters')?.addEventListener('click', () => {
   setFiltersCollapsed(!getState().filtersCollapsed);
+  resizeGraph();
 });
 document.getElementById('toggle-detail')?.addEventListener('click', () => {
   setDetailCollapsed(!getState().detailCollapsed);
+  resizeGraph();
 });
 document.getElementById('warn-badge')?.addEventListener('click', toggleWarnings);
+window.addEventListener('resize', resizeGraph);
 
 subscribe(render);
 render();

@@ -146,6 +146,21 @@ function renderElement(ref: ElementRef): string {
   `;
 }
 
+/** Lightweight sheet for graph aux nodes without a snapshot record (e.g. env vars no longer scanned). */
+function renderAuxFallback(id: string): string {
+  const separator = id.indexOf(':');
+  const prefix = separator === -1 ? id : id.slice(0, separator);
+  const rest = separator === -1 ? id : id.slice(separator + 1);
+  const name = rest.includes('/') ? (rest.split('/').pop() ?? rest) : rest;
+  const labels: Record<string, string> = { ref: 'Referencia', env: 'Variable de entorno', registry: 'Registro' };
+  return `
+    <div class="kind">${escapeHtml(labels[prefix] ?? 'Nodo del grafo')}</div>
+    <h2>${escapeHtml(name)}</h2>
+    <div class="key">${escapeHtml(id)}</div>
+    <div class="desc">Nodo auxiliar del grafo sin ficha propia en el snapshot.</div>
+  `;
+}
+
 function renderWarnings(): string {
   const items = meta.warnings
     .map(warning => `<div class="warning-row">${escapeHtml(warning)}</div>`)
@@ -165,7 +180,9 @@ export function renderDetail(container: HTMLElement): void {
   }
   const ref = resolveElement(state.selectedId);
   if (!ref) {
-    container.innerHTML = '<div class="empty">Seleccione un elemento para ver su detalle.</div>';
+    container.innerHTML = state.selectedId
+      ? renderAuxFallback(state.selectedId)
+      : '<div class="empty">Seleccione un elemento para ver su detalle.</div>';
     return;
   }
   container.innerHTML = renderElement(ref);

@@ -1,4 +1,4 @@
-import type { AppState } from './state.ts';
+import type { AppState, GraphKind } from './state.ts';
 import type { AgentEl, CommandEl, EnvVarEl, McpEl, RegistryEl, ScriptEl, SkillEl } from './types.ts';
 import { snapshot } from './data.ts';
 
@@ -88,6 +88,29 @@ export function registryMatches(registry: RegistryEl, state: AppState): boolean 
 }
 
 export type ElementKind = 'skill' | 'command' | 'agent' | 'mcp' | 'env' | 'script' | 'registry';
+
+/** One hex per graph node kind (graph.ts stylesheet + legend). */
+export const kindColor: Record<GraphKind, string> = {
+  skill: '#4f8cff',
+  command: '#d29922',
+  agent: '#bc8cff',
+  mcp: '#3fb950',
+  script: '#76e3ea',
+  env: '#ff7b72',
+  ref: '#6e7681',
+  registry: '#f778ba',
+};
+
+export const graphKindLabels: Record<GraphKind, string> = {
+  skill: 'Skill',
+  command: 'Comando',
+  agent: 'Agente',
+  mcp: 'MCP',
+  script: 'Script',
+  env: 'Env',
+  ref: 'Refs',
+  registry: 'Registro',
+};
 
 export type ElementRef
   = | { kind: 'skill', element: SkillEl }

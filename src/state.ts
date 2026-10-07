@@ -4,6 +4,10 @@ export type TabId = 'resumen' | 'skills' | 'agents' | 'mcp-env' | 'scripts' | 'g
 
 export type EnvStatus = 'all' | 'both' | 'example-only' | 'env-only' | 'missing';
 
+export type GraphKind = 'skill' | 'command' | 'agent' | 'mcp' | 'script' | 'env' | 'ref' | 'registry';
+
+export const ALL_GRAPH_KINDS: GraphKind[] = ['skill', 'command', 'agent', 'mcp', 'script', 'env', 'ref', 'registry'];
+
 export interface Filters {
   tiers: SkillTier[]
   registeredOnly: boolean
@@ -11,6 +15,7 @@ export interface Filters {
   hosts: string[]
   mcpConfigFiles: string[]
   envStatus: EnvStatus
+  graphKinds: GraphKind[]
 }
 
 export interface AppState {
@@ -30,7 +35,7 @@ const state: AppState = {
   showWarnings: false,
   filtersCollapsed: false,
   detailCollapsed: false,
-  filters: { tiers: [], registeredOnly: false, vendoredOnly: false, hosts: [], mcpConfigFiles: [], envStatus: 'all' },
+  filters: { tiers: [], registeredOnly: false, vendoredOnly: false, hosts: [], mcpConfigFiles: [], envStatus: 'all', graphKinds: [...ALL_GRAPH_KINDS] },
 };
 
 const listeners = new Set<() => void>();
@@ -107,5 +112,16 @@ export function toggleFlag(flag: 'registeredOnly' | 'vendoredOnly'): void {
 
 export function setEnvStatus(envStatus: EnvStatus): void {
   state.filters.envStatus = envStatus;
+  notify();
+}
+
+export function toggleGraphKind(kind: GraphKind): void {
+  toggleValue(state.filters.graphKinds, kind);
+  notify();
+}
+
+/** Used once at graph-module init (perf guard) before the first render. */
+export function setGraphKinds(graphKinds: GraphKind[]): void {
+  state.filters.graphKinds = graphKinds;
   notify();
 }

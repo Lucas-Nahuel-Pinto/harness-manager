@@ -217,10 +217,25 @@ table.matrix { border-collapse: collapse; font-size: 12.5px; width: 100%; }
   color: var(--muted); font-size: 11.5px; margin-top: 8px;
 }
 .legend .dot { margin-right: 4px; }
-.placeholder-tab {
-  color: var(--muted); text-align: center; padding: 70px 20px;
+.view.graph-mode { display: flex; flex-direction: column; padding: 10px; overflow: hidden; }
+.graph-wrap {
+  flex: 1; min-height: 480px; border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden; position: relative; background: var(--panel);
 }
-.placeholder-tab h2 { font-size: 16px; color: var(--text); margin: 0 0 8px; }
+.graph-overlay {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(15, 18, 24, 0.82); color: var(--muted); font-size: 13px; z-index: 5;
+}
+.graph-legend {
+  position: absolute; left: 10px; bottom: 8px; z-index: 4;
+  display: flex; flex-wrap: wrap; gap: 10px;
+  background: rgba(22, 27, 36, 0.85); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 9px;
+}
+.graph-legend .item {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--muted);
+}
 .empty { color: var(--muted); padding: 14px; font-style: italic; }
 .toasts {
   position: fixed; right: 16px; bottom: 16px; z-index: 50;
