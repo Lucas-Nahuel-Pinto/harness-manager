@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { refreshModelCatalogIfAvailable } from './src/scan/misc.ts';
 import { createApp } from './src/server/app.ts';
 
 function argValue(flag: string): string | undefined {
@@ -17,3 +18,6 @@ const server = Bun.serve({
 });
 
 console.log(`Harness Manager sirviendo en http://127.0.0.1:${server.port} · root: ${rootAbs}`);
+
+// Fire-and-forget model catalog refresh — async, never blocks the event loop.
+void refreshModelCatalogIfAvailable(rootAbs).catch(() => { /* best effort */ });

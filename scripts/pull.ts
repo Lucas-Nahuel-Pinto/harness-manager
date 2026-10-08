@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname, join, resolve } from 'node:path';
 import Ajv from 'ajv';
 import { scanHarness, snapshotPath, TOOL_VERSION } from '../src/scan/index.ts';
+import { refreshModelCatalogIfAvailable } from '../src/scan/misc.ts';
 
 const REPO_ROOT = resolve(import.meta.dir, '..');
 
@@ -32,13 +33,19 @@ function abort(message: string): never {
   process.exit(1);
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const { root } = parseArgs();
   console.log(`harness-manager pull v${TOOL_VERSION}`);
   console.log(`root: ${root}`);
 
+  const refreshWarnings: string[] = [];
+  const refreshed = await refreshModelCatalogIfAvailable(root, refreshWarnings);
+  if (refreshed) { console.log('model catalog refreshed'); }
+
   const { snapshot, error } = scanHarness(root);
   if (error || !snapshot) { abort(error ?? 'scan produced no snapshot'); }
+
+  snapshot.meta.warnings.unshift(...refreshWarnings);
 
   const schemaError = validate(snapshot);
   if (schemaError) { abort(`schema validation: ${schemaError}`); }
@@ -66,4 +73,7 @@ function main(): void {
   console.log(`written: ${out}`);
 }
 
-main();
+main().catch((e) => {
+  console.error(`ABORT: ${e instanceof Error ? e.message : String(e)}`);
+  process.exit(1);
+});

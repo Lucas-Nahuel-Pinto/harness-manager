@@ -1,5 +1,4 @@
 import type { CatalogModel, EnvVarEl, HealthEl, RegistryEl, ScriptEl } from '../types.ts';
-import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseJsonc } from './jsonc.ts';
@@ -18,34 +17,38 @@ function detectBoilerplateModelScript(root: string): string | null {
   return null;
 }
 
-export function refreshModelCatalogIfAvailable(root: string, warnings: string[]): boolean {
+/** Async fire-and-forget refresh — never blocks the event loop (Bun.spawn, not spawnSync). */
+export async function refreshModelCatalogIfAvailable(root: string, warnings?: string[]): Promise<boolean> {
   const detector = detectBoilerplateModelScript(root);
   if (!detector) { return false; }
 
-  let cmd: string[];
-  if (detector === 'harness-config') {
-    cmd = ['bun', 'run', 'harness-config', 'roles', '--refresh'];
-  }
-  else {
-    cmd = ['bun', detector, '--refresh'];
-  }
+  const cmd = detector === 'harness-config'
+    ? ['bun', 'run', 'harness-config', 'roles', '--refresh']
+    : ['bun', detector, '--refresh'];
 
   try {
-    const result = spawnSync(cmd[0], cmd.slice(1), {
+    const proc = Bun.spawn(cmd, {
       cwd: root,
-      stdio: 'pipe',
-      timeout: 30000,
-      shell: process.platform === 'win32',
+      stdin: 'ignore',
+      stdout: 'pipe',
+      stderr: 'pipe',
     });
-    if (result.status !== 0) {
-      const stderr = result.stderr?.toString?.() ?? '';
-      warnings.push(`model catalog refresh failed (exit ${result.status}): ${stderr.slice(0, 200)}`);
+    const exitCode = await Promise.race([
+      proc.exited,
+      new Promise<null>(r => setTimeout(() => { proc.kill(); r(null); }, 30000)),
+    ]);
+    if (exitCode === null) {
+      warnings?.push('model catalog refresh timed out (30s)');
+      return false;
+    }
+    if (exitCode !== 0) {
+      warnings?.push(`model catalog refresh failed (exit ${exitCode})`);
       return false;
     }
     return true;
   }
   catch (e) {
-    warnings.push(`model catalog refresh error: ${e instanceof Error ? e.message : String(e)}`);
+    warnings?.push(`model catalog refresh error: ${e instanceof Error ? e.message : String(e)}`);
     return false;
   }
 }
