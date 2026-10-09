@@ -314,6 +314,33 @@ table.matrix { border-collapse: collapse; font-size: 12.5px; width: 100%; }
 }
 .copy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .copy-btn:disabled:hover { color: var(--muted); border-color: var(--border); }
+
+/* ── Fase online: badge de conexión + banner + pantalla de pairing ─ */
+.conn-badge { font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.conn-badge.ok { color: var(--green); }
+.conn-badge.warn { color: var(--amber); }
+.conn-badge.bad { color: var(--red); }
+.conn-banner {
+  background: rgba(248,81,73,0.1); border-bottom: 1px solid rgba(248,81,73,0.4);
+  color: var(--red); font-size: 12px; padding: 5px 16px;
+}
+.pairing { max-width: 470px; margin: 16vh auto 0; padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
+.pairing h1 { font-size: 18px; margin: 0; }
+.pairing-hint { color: var(--muted); font-size: 13px; margin: 0; }
+.pairing form { display: flex; flex-direction: column; gap: 8px; }
+.pairing-input {
+  width: 100%; background: var(--panel-2); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; padding: 9px 11px; outline: none;
+  font-family: var(--mono); font-size: 12.5px;
+}
+.pairing-input:focus { border-color: var(--accent); }
+.pairing-error { color: var(--red); font-size: 12.5px; }
+.pairing-connect {
+  align-self: flex-start; background: var(--accent); color: #0b1220;
+  border: none; border-radius: 6px; padding: 7px 16px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.pairing-connect:hover { filter: brightness(1.1); }
 `;
 
 export function injectStyles(): void {

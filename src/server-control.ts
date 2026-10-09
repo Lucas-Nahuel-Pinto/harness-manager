@@ -3,7 +3,7 @@ import { toast } from './components/toast.ts';
 import { escapeHtml } from './html.ts';
 import { meta } from './model.ts';
 import { refreshSnapshot } from './refresh.ts';
-import { actionsEnabled, isLauncherMode, isServeMode, setEngineBase } from './serve.ts';
+import { actionsEnabled, isLauncherMode, isOnlineMode, isServeMode, setEngineBase } from './serve.ts';
 import { notify } from './state.ts';
 
 /** Mirrors the launcher API (`src/launcher/app.ts`). */
@@ -173,6 +173,10 @@ function renderBadge(): void {
   if (!badge) { return; }
   const available = actionsEnabled();
   badge.classList.toggle('serve', available);
+  if (isOnlineMode) {
+    badge.textContent = available ? 'modo online · escritura' : 'modo online · solo lectura';
+    return;
+  }
   badge.textContent = available ? 'modo serve · escritura' : 'modo solo lectura';
 }
 
@@ -182,6 +186,7 @@ export function renderServerControl(): void {
   if (!slot) { return; }
   renderBadge();
 
+  if (isOnlineMode) { slot.innerHTML = ''; return; } // the connection badge owns the header online
   if (isServeMode) { slot.innerHTML = ''; return; }
 
   if (isLauncherMode) {

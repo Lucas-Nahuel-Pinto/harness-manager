@@ -71,7 +71,22 @@ export function injectLauncherFlags(html: string, rootAbs: string): string {
   return `${tag}${html}`;
 }
 
-async function readUrlFromStdout(stream: ReadableStream<Uint8Array>, timeoutMs: number): Promise<string | null> {
+/**
+ * Buffered line filter over engine stdout: returns the complete `Online: …` lines found in the
+ * chunk (partial lines carry over to the next one). The launcher drains the pipe silently, so
+ * without this the pairing URL would never reach the user.
+ */
+export function createOnlineLineFilter(): (chunk: string) => string[] {
+  let carry = '';
+  return (chunk: string) => {
+    carry += chunk;
+    const lines = carry.split(/\r?\n/);
+    carry = lines.pop() ?? '';
+    return lines.filter(line => line.startsWith('Online:'));
+  };
+}
+
+async function readUrlFromStdout(stream: ReadableStream<Uint8Array>, timeoutMs: number, onChunk?: (text: string) => void): Promise<string | null> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -86,13 +101,19 @@ async function readUrlFromStdout(stream: ReadableStream<Uint8Array>, timeoutMs: 
         new Promise<'timeout'>((r) => { timer = setTimeout(() => r('timeout'), remaining); }),
       ]).finally(() => clearTimeout(timer));
       if (chunk === 'timeout' || chunk.done) { return null; }
-      buffer += decoder.decode(chunk.value, { stream: true });
+      const text = decoder.decode(chunk.value, { stream: true });
+      buffer += text;
+      onChunk?.(text);
       const match = /http:\/\/127\.0\.0\.1:\d+/.exec(buffer);
       if (match) {
         // keep draining so the engine never blocks on a full stdout pipe
         void (async () => {
           try {
-            for (;;) { const { done } = await reader.read(); if (done) { return; } }
+            for (;;) {
+              const { done, value } = await reader.read();
+              if (done) { return; }
+              onChunk?.(decoder.decode(value, { stream: true }));
+            }
           }
           catch { /* closed */ }
         })();
@@ -120,8 +141,8 @@ async function waitForSnapshot(url: string, deadline: number, isDead: () => bool
  * Real engine spawn: `bun server.ts --root <root> --port 0` in the repo root,
  * ready = stdout URL parse (≤5s) + snapshot poll (≤8s overall from spawn).
  */
-export function spawnEngineProcess(repoRoot: string, rootAbs: string): EngineHandle {
-  const proc = Bun.spawn(['bun', 'server.ts', '--root', rootAbs, '--port', '0'], {
+export function spawnEngineProcess(repoRoot: string, rootAbs: string, extraArgs: string[] = []): EngineHandle {
+  const proc = Bun.spawn(['bun', 'server.ts', '--root', rootAbs, '--port', '0', ...extraArgs], {
     cwd: repoRoot,
     stdin: 'ignore',
     stdout: 'pipe',
@@ -144,7 +165,11 @@ export function spawnEngineProcess(repoRoot: string, rootAbs: string): EngineHan
     catch { /* closed */ }
   })();
   const ready = (async () => {
-    const url = await readUrlFromStdout(proc.stdout, 5000);
+    // The ready-drain swallows engine stdout — echo `Online:` lines so the pairing URL is visible.
+    const echoOnline = createOnlineLineFilter();
+    const url = await readUrlFromStdout(proc.stdout, 5000, (text) => {
+      for (const line of echoOnline(text)) { console.log(line); }
+    });
     if (!url) { throw new Error('el motor no publicó su URL en 5s'); }
     await waitForSnapshot(url, spawnedAt + READY_TIMEOUT_MS, () => childExited);
     return url;

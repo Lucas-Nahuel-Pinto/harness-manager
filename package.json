@@ -8,16 +8,21 @@
   "scripts": {
     "pull": "bun scripts/pull.ts",
     "build": "vite build",
+    "build:online": "vite build --mode online",
     "serve": "bun run build && bun launcher.ts",
     "engine": "bun server.ts",
+    "online": "bun run build:online && bun launcher.ts --online",
     "dev": "vite",
+    "relay:dev": "bun relay/dev.ts",
     "test": "bun test",
     "types:check": "tsc --noEmit",
+    "types:relay": "tsc -p relay/tsconfig.json --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "format:check": "prettier --check \"**/*.{json,yml,yaml,css,html}\" --ignore-path .prettierignore",
     "format:fix": "prettier --write \"**/*.{json,yml,yaml,css,html}\" --ignore-path .prettierignore",
-    "repo:check": "bun run format:check && bun run lint && bun run types:check && bun test"
+    "urls:bake": "bun scripts/bake-urls.ts",
+    "repo:check": "bun run format:check && bun run lint && bun run types:check && bun run types:relay && bun test"
   },
   "dependencies": {
     "cytoscape": "^3.34.3",
@@ -26,6 +31,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^4.16.0",
+    "@cloudflare/workers-types": "^5.20261009.1",
     "@types/bun": "^1.4.2",
     "@types/node": "^24.10.1",
     "ajv": "^8.20.0",
@@ -33,6 +39,7 @@
     "prettier": "^3.9.9",
     "typescript": "^5.8.3",
     "vite": "^8.3.2",
-    "vite-plugin-singlefile": "^2.3.3"
+    "vite-plugin-singlefile": "^2.3.3",
+    "wrangler": "^4.149.0"
   }
 }

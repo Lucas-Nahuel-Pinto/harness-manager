@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { createLauncher, killEngineProcess, spawnEngineProcess } from './src/launcher/app.ts';
+import { parseOnlineArgv } from './src/online/relay-client.ts';
 
 function argValue(flag: string): string | undefined {
   const argv = process.argv.slice(2);
@@ -26,6 +27,7 @@ const rootAbs = resolve(argValue('--root') ?? process.cwd());
 const portRaw = argValue('--port') ?? process.env.HM_LAUNCHER_PORT ?? '7397';
 const port = Number(portRaw);
 const repoRoot = resolve(import.meta.dir);
+const engineOnlineArgs = parseOnlineArgv(process.argv.slice(2));
 
 // Keep a handle on the engine so an abrupt launcher exit does not orphan it.
 let activeEngine: ReturnType<typeof spawnEngineProcess> | null = null;
@@ -35,7 +37,7 @@ const server = Bun.serve({
   port: Number.isInteger(port) && port >= 1 && port <= 65535 ? port : 7397,
   fetch: createLauncher(rootAbs, {
     spawnEngine: () => {
-      activeEngine = spawnEngineProcess(repoRoot, rootAbs);
+      activeEngine = spawnEngineProcess(repoRoot, rootAbs, engineOnlineArgs);
       return activeEngine;
     },
     killEngine: async (handle) => {

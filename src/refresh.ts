@@ -19,20 +19,20 @@ function failure(body: ApiBody, fallback: string): string {
   return body.detail ?? body.error ?? fallback;
 }
 
-/** GET /api/snapshot → replace in-memory model + graph, notify renderers. */
-export async function refreshSnapshot(): Promise<void> {
+/** GET /api/snapshot → replace in-memory model + graph, notify renderers. `silent` = no toasts (online boot/reconnect pull). */
+export async function refreshSnapshot(options: { silent?: boolean } = {}): Promise<void> {
   if (!actionsEnabled()) { return; }
   try {
     const body = await apiGet('/api/snapshot');
     if (!body.ok || !body.snapshot) {
-      toast(failure(body, 'No se pudo re-scanear'), 'error');
+      if (!options.silent) { toast(failure(body, 'No se pudo re-scanear'), 'error'); }
       return;
     }
     applySnapshot(body.snapshot);
-    toast('Snapshot actualizado', 'ok');
+    if (!options.silent) { toast('Snapshot actualizado', 'ok'); }
   }
   catch (error) {
-    toast(`Sin conexión con el servidor: ${String(error)}`, 'error');
+    if (!options.silent) { toast(`Sin conexión con el servidor: ${String(error)}`, 'error'); }
   }
 }
 

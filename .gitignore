@@ -9,3 +9,5 @@ Thumbs.db
 .vscode/
 dist/
 data/
+dist-online/
+.wrangler/
