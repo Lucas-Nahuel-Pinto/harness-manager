@@ -45,6 +45,51 @@ Scan root resolution: `--root <path>` flag → `HARNESS_ROOT` env var → curren
 | `--root <path>` | Harness root for both launcher and engine (default: cwd) |
 | `--port <n>` / `HM_PORT` | Engine port when running `bun run engine` directly (default `0` = random) |
 
+## Online mode (web)
+
+Open the full dashboard from **any device on any network** while every harness file and credential stays on the operator's machine. A hosted static UI (Cloudflare Pages) talks to the local engine through an end-to-end-encrypted relay (Cloudflare Worker + Durable Object). The browser is a remote control, not a file store: the relay only forwards opaque AES-GCM frames and never sees the session code, the key, or any harness data.
+
+### Security model
+
+| What travels (through the relay) | What NEVER travels |
+| --- | --- |
+| AES-GCM encrypted frames — the relay forwards opaque bytes and stores nothing | `.env` values (the scanner reads key **names** only — invariant unchanged) |
+| Room id = SHA-256(session code) | The session code itself — it lives in the URL **fragment** (`#c=`), which browsers never send to any server |
+| Join control `{room, role}` + presence (roles/counts only, cleartext metadata) | The snapshot outside the encrypted channel |
+| | Source-form absolute paths outside the encrypted channel |
+
+The engine always binds `127.0.0.1` and only makes **outbound** connections to the relay — no inbound ports, no firewall changes. The session code is regenerated on every engine start (new room); stale rooms expire after 24h idle.
+
+### Commands
+
+| Command | Effect |
+| --- | --- |
+| `bun run online` | Online build + engine with `--online`; prints `Online: <PAGES_URL>/#c=<CODE>` next to the local URL |
+| `bun run build:online` | UI build for Pages → `dist-online/` (no embedded snapshot, empty "esperando motor" state) |
+| `bun run relay:dev` | Local relay on `ws://127.0.0.1:8788` — same routing logic as the deployed Worker |
+| `bun run urls:bake <pagesUrl> <relayUrl>` | Bake the deployed URLs into the committed constants in `src/online/pairing.ts` |
+
+### Deploy / update
+
+```bash
+bunx wrangler login                                # once, interactive — user-owned credentials
+bun run urls:bake https://<project>.pages.dev wss://harness-manager-relay.<sub>.workers.dev/relay
+bun run build:online
+bunx wrangler deploy -c relay/wrangler.toml        # Worker + Durable Object (dumb relay, no secrets)
+bunx wrangler pages project create <project>       # first deploy only
+bunx wrangler pages deploy dist-online --project-name <project>
+```
+
+Re-deploying an update repeats the bake (if the URLs changed) + build + the two deploy commands. The Worker holds no secrets and no harness data; changing a URL is a normal commit + redeploy.
+
+### Pairing flow
+
+1. `bun run online --root <harness>` — the engine prints `Online: https://<project>.pages.dev/#c=<CODE>` next to the local URL once the relay connection is up.
+2. Open that URL from any device (the code lives in the fragment, so it is never transmitted). A hosted origin without `#c=` shows the pairing screen — paste the full pairing URL or the bare code.
+3. The UI derives the room + key from the code identically to the engine, joins the relay, and streams the snapshot end-to-end-encrypted. Stop the engine → the UI shows the offline banner; restart → new code, new room (the old room dies with the old engine).
+
+**Local mode is unchanged**: opening the UI via `file://` or `127.0.0.1` (no `#c=`) talks to the local engine over plain fetch, exactly as before.
+
 ## The 6 tabs
 
 | Tab | Content |
