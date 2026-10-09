@@ -41,7 +41,7 @@ async function route(req: Request, rootAbs: string): Promise<Response> {
   const { pathname } = new URL(req.url);
 
   if (pathname === '/api/snapshot' && req.method === 'GET') {
-    const { snapshot, error } = scanHarness(rootAbs);
+    const { snapshot, error } = await scanHarness(rootAbs);
     if (!snapshot) { return json(500, { ok: false, error: 'scan_failed', detail: error ?? 'scan failed' }); }
     return json(200, { ok: true, snapshot });
   }
@@ -54,7 +54,7 @@ async function route(req: Request, rootAbs: string): Promise<Response> {
     catch {
       return json(400, { ok: false, error: 'bad_json', detail: 'el body no es JSON válido' });
     }
-    const { status, body } = dispatchAction(rootAbs, payload);
+    const { status, body } = await dispatchAction(rootAbs, payload);
     return json(status, body);
   }
 

@@ -15,14 +15,14 @@ const MODEL_ID_RE = /^[\w.\-/]+$/;
  * (`"<jsonPath>"` scalar in the manifest-declared config file). Rest of the file stays
  * byte-identical. The agent is resolved against a FRESH scan — the client never supplies a path.
  */
-export function computeModelSet(rootAbs: string, payload: Record<string, unknown>): ComputeResult {
+export async function computeModelSet(rootAbs: string, payload: Record<string, unknown>): Promise<ComputeResult> {
   const { agentId, model } = payload;
   if (typeof agentId !== 'string' || agentId.length === 0) { return fail(400, 'bad_payload', 'agentId vacío'); }
   if (typeof model !== 'string' || !MODEL_ID_RE.test(model)) {
     return fail(400, 'bad_payload', 'model inválido (se espera un id del catálogo)');
   }
 
-  const { snapshot, error } = scanHarness(rootAbs);
+  const { snapshot, error } = await scanHarness(rootAbs);
   if (!snapshot) { return fail(500, 'scan_failed', error ?? 'scan failed'); }
   const agent = snapshot.agents.find(candidate => candidate.id === agentId);
   if (!agent) { return fail(400, 'agent_not_found', `no existe el agente "${agentId}"`); }

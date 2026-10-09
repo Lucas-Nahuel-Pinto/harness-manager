@@ -15,7 +15,7 @@ export type { ActionResult, ApiBody } from './types.ts';
  * stage 1 (no `confirm`) only ever returns diff + summary, stage 2 (`confirm: true`)
  * recomputes, re-guards and applies atomically. Unknown kinds and bad shapes → 400.
  */
-export function dispatchAction(rootAbs: string, rawBody: unknown): ActionResult {
+export async function dispatchAction(rootAbs: string, rawBody: unknown): Promise<ActionResult> {
   if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
     return errorResult(400, 'bad_body', 'se espera un objeto { kind, target?, payload?, confirm? }');
   }
@@ -33,7 +33,7 @@ export function dispatchAction(rootAbs: string, rawBody: unknown): ActionResult 
     case 'mcp-toggle':
       return stageOrApply(rootAbs, confirm, computeMcpToggle(rootAbs, payload));
     case 'model-set':
-      return stageOrApply(rootAbs, confirm, computeModelSet(rootAbs, payload));
+      return stageOrApply(rootAbs, confirm, await computeModelSet(rootAbs, payload));
     case 'open-path':
       return openPath(rootAbs, body.target);
     default:
@@ -54,7 +54,7 @@ function openPath(rootAbs: string, target: unknown): ActionResult {
     : { status: 200, body: { ok: false, error: 'open_failed', detail: 'el sistema operativo no pudo abrir el archivo' } };
 }
 
-function stageOrApply(rootAbs: string, confirm: boolean, computed: ComputeResult): ActionResult {
+async function stageOrApply(rootAbs: string, confirm: boolean, computed: ComputeResult): Promise<ActionResult> {
   if (!computed.ok) { return errorResult(computed.status, computed.code, computed.detail); }
 
   const { relPath, absPath, oldText, newText, summary } = computed.computed;
@@ -64,7 +64,7 @@ function stageOrApply(rootAbs: string, confirm: boolean, computed: ComputeResult
   }
 
   if (newText === oldText) {
-    const { snapshot, error } = scanHarness(rootAbs);
+    const { snapshot, error } = await scanHarness(rootAbs);
     if (!snapshot) { return errorResult(500, 'rescan_failed', error ?? 'scan failed'); }
     return { status: 200, body: { ok: true, snapshot } };
   }
@@ -74,7 +74,7 @@ function stageOrApply(rootAbs: string, confirm: boolean, computed: ComputeResult
   if (!guarded || guarded !== absPath) {
     return errorResult(400, 'path_escape', `ruta fuera del harness root: ${relPath}`);
   }
-  const applied = applyAndRescan(rootAbs, guarded, newText);
+  const applied = await applyAndRescan(rootAbs, guarded, newText);
   if (!applied.ok || !applied.snapshot) {
     return errorResult(500, applied.error ?? 'write_failed', applied.detail ?? 'no se pudo aplicar el cambio');
   }

@@ -1,55 +1,59 @@
 import type { CatalogModel, EnvVarEl, HealthEl, RegistryEl, ScriptEl } from '../types.ts';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { declaresInterest, DEFAULT_TTL_MS, isStale, readCatalog, writeCatalogAtomic } from '../catalog/cache.ts';
+import { fetchModels } from '../catalog/fetch.ts';
 import { parseJsonc } from './jsonc.ts';
+import { loadManifest } from './manifest.ts';
 
-function detectBoilerplateModelScript(root: string): string | null {
-  const scriptPath = join(root, 'scripts', 'qa-model-selector.ts');
-  if (existsSync(scriptPath)) { return scriptPath; }
-  const pkgPath = join(root, 'package.json');
-  if (existsSync(pkgPath)) {
-    try {
-      const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { scripts?: Record<string, string> };
-      if (pkg.scripts?.['harness-config']) { return 'harness-config'; }
-    }
-    catch { }
-  }
-  return null;
+/** Refresh budget (spec §3.6): hard 15s cap on the whole fetch, then degrade to a warning. */
+const REFRESH_BUDGET_MS = 15_000;
+
+/** MODELS_CACHE_TTL is seconds (boilerplate parity). Absent/invalid → 24h default. */
+function catalogTtlMs(): number {
+  const raw = process.env.MODELS_CACHE_TTL;
+  if (!raw) { return DEFAULT_TTL_MS; }
+  const seconds = Number.parseInt(raw, 10);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : DEFAULT_TTL_MS;
 }
 
-/** Async fire-and-forget refresh — never blocks the event loop (Bun.spawn, not spawnSync). */
-export async function refreshModelCatalogIfAvailable(root: string, warnings?: string[]): Promise<boolean> {
-  const detector = detectBoilerplateModelScript(root);
-  if (!detector) { return false; }
+/**
+ * Native catalog refresh on the rescan path (spec §3.5–3.8): runs only when the
+ * harness declares interest AND the cache is missing or stale, awaits the fetch
+ * before the scan reads the file (no read/write race), and keeps the old file on
+ * total failure. Returns a warning string for the snapshot, or null when nothing
+ * needed doing. Never throws.
+ */
+export async function refreshModelCatalog(
+  root: string,
+  catalogFile: string,
+  opts: { fetchImpl?: typeof fetch } = {},
+): Promise<string | null> {
+  const { manifest } = loadManifest(root);
+  if (!declaresInterest(root, manifest, catalogFile)) { return null; }
 
-  const cmd = detector === 'harness-config'
-    ? ['bun', 'run', 'harness-config', 'roles', '--refresh']
-    : ['bun', detector, '--refresh'];
+  const path = join(root, catalogFile);
+  const cached = readCatalog(path);
+  if (cached && !isStale(cached, catalogTtlMs())) { return null; }
 
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const proc = Bun.spawn(cmd, {
-      cwd: root,
-      stdin: 'ignore',
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
-    const exitCode = await Promise.race([
-      proc.exited,
-      new Promise<null>(r => setTimeout(() => { proc.kill(); r(null); }, 30000)),
+    const fetched = await Promise.race([
+      fetchModels({ fetchImpl: opts.fetchImpl }),
+      new Promise<null>((resolve) => { timer = setTimeout(() => { resolve(null); }, REFRESH_BUDGET_MS); }),
     ]);
-    if (exitCode === null) {
-      warnings?.push('model catalog refresh timed out (30s)');
-      return false;
+    if (!fetched) { return 'model catalog refresh timed out (15s)'; }
+    if (fetched.models.length === 0 && fetched.sources.length === 0) {
+      return 'model catalog refresh failed (all sources)';
     }
-    if (exitCode !== 0) {
-      warnings?.push(`model catalog refresh failed (exit ${exitCode})`);
-      return false;
-    }
-    return true;
+    writeCatalogAtomic(path, fetched);
+    return null;
   }
   catch (e) {
-    warnings?.push(`model catalog refresh error: ${e instanceof Error ? e.message : String(e)}`);
-    return false;
+    return `model catalog refresh error: ${e instanceof Error ? e.message : String(e)}`;
+  }
+  finally {
+    if (timer !== undefined) { clearTimeout(timer); }
   }
 }
 

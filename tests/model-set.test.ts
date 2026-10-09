@@ -34,11 +34,11 @@ function expectFail(result: ComputeResult, code: string, status = 400): void {
 }
 
 describe('computeModelSet — subagent (frontmatter)', () => {
-  test('rewrites only the model line, everything else byte-identical', () => {
+  test('rewrites only the model line, everything else byte-identical', async () => {
     const original = readFileSync(helperPath, 'utf8');
     const originalLines = original.split('\n');
 
-    const result = expectOk(computeModelSet(root, { agentId: HELPER_ID, model: 'opencode/demo-model' }));
+    const result = expectOk(await computeModelSet(root, { agentId: HELPER_ID, model: 'opencode/demo-model' }));
     const newLines = result.computed.newText.split('\n');
 
     expect(result.computed.newText).toContain('model: opencode/demo-model');
@@ -49,31 +49,37 @@ describe('computeModelSet — subagent (frontmatter)', () => {
     expect(result.computed.summary).toContain('opencode/demo-model');
   });
 
-  test('same model is a no-op edit', () => {
-    const result = expectOk(computeModelSet(root, { agentId: HELPER_ID, model: 'deepseek/deepseek-flash' }));
+  test('same model is a no-op edit', async () => {
+    const result = expectOk(await computeModelSet(root, { agentId: HELPER_ID, model: 'deepseek/deepseek-flash' }));
     expect(result.computed.newText).toBe(result.computed.oldText);
     expect(result.computed.summary).toContain('(sin cambios)');
   });
 
-  test('model outside the catalog and not current → invalid_model', () => {
+  test('model outside the catalog and not current → invalid_model', async () => {
     expectFail(
-      computeModelSet(root, { agentId: HELPER_ID, model: 'unknown/provider-model' }),
+      await computeModelSet(root, { agentId: HELPER_ID, model: 'unknown/provider-model' }),
       'invalid_model',
     );
   });
 
-  test('unknown agent → agent_not_found', () => {
-    expectFail(computeModelSet(root, { agentId: 'agent:ghost.md', model: 'opencode/demo-model' }), 'agent_not_found');
+  test('unknown agent → agent_not_found', async () => {
+    expectFail(
+      await computeModelSet(root, { agentId: 'agent:ghost.md', model: 'opencode/demo-model' }),
+      'agent_not_found',
+    );
   });
 
-  test('subagent without frontmatter → no_frontmatter', () => {
+  test('subagent without frontmatter → no_frontmatter', async () => {
     writeFileSync(helperPath, 'Just plain text, no frontmatter here.\n');
-    expectFail(computeModelSet(root, { agentId: HELPER_ID, model: 'opencode/demo-model' }), 'no_frontmatter');
+    expectFail(
+      await computeModelSet(root, { agentId: HELPER_ID, model: 'opencode/demo-model' }),
+      'no_frontmatter',
+    );
   });
 
-  test('frontmatter without model line gets one inserted after the opening ---', () => {
+  test('frontmatter without model line gets one inserted after the opening ---', async () => {
     writeFileSync(helperPath, '---\ndescription: no model yet\n---\nbody\n');
-    const result = expectOk(computeModelSet(root, { agentId: HELPER_ID, model: 'opencode/demo-model' }));
+    const result = expectOk(await computeModelSet(root, { agentId: HELPER_ID, model: 'opencode/demo-model' }));
     const lines = result.computed.newText.split('\n');
     expect(lines[0]).toBe('---');
     expect(lines[1]).toBe('model: opencode/demo-model');
@@ -82,9 +88,9 @@ describe('computeModelSet — subagent (frontmatter)', () => {
 });
 
 describe('computeModelSet — main session (opencode.jsonc)', () => {
-  test('replaces the model value and keeps the rest of the file intact', () => {
+  test('replaces the model value and keeps the rest of the file intact', async () => {
     const original = readFileSync(mainPath, 'utf8');
-    const result = expectOk(computeModelSet(root, { agentId: MAIN_ID, model: 'opencode/demo-model' }));
+    const result = expectOk(await computeModelSet(root, { agentId: MAIN_ID, model: 'opencode/demo-model' }));
 
     expect(result.computed.newText).toContain('"model": "opencode/demo-model"');
     expect(result.computed.newText).not.toContain('opencode/mimo-v2.6-flash-free');
@@ -98,17 +104,17 @@ describe('computeModelSet — main session (opencode.jsonc)', () => {
     expect(result.computed.summary).toContain('agente principal');
   });
 
-  test('main may keep its current model even when it is not in the catalog', () => {
-    const result = expectOk(computeModelSet(root, { agentId: MAIN_ID, model: 'opencode/mimo-v2.6-flash-free' }));
+  test('main may keep its current model even when it is not in the catalog', async () => {
+    const result = expectOk(await computeModelSet(root, { agentId: MAIN_ID, model: 'opencode/mimo-v2.6-flash-free' }));
     expect(result.computed.newText).toBe(result.computed.oldText);
     expect(result.computed.summary).toContain('(sin cambios)');
   });
 
-  test('applied change is visible on the next scan', () => {
-    const result = expectOk(computeModelSet(root, { agentId: HELPER_ID, model: 'opencode/demo-model' }));
+  test('applied change is visible on the next scan', async () => {
+    const result = expectOk(await computeModelSet(root, { agentId: HELPER_ID, model: 'opencode/demo-model' }));
     writeFileSync(helperPath, result.computed.newText);
 
-    const { snapshot, error } = scanHarness(root);
+    const { snapshot, error } = await scanHarness(root);
     expect(error).toBeNull();
     if (!snapshot) { throw new Error('snapshot missing'); }
     const helper = snapshot.agents.find(agent => !agent.isMain);

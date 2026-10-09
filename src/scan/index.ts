@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { readMainModel, scanAgents, scanMcps } from './agents.ts';
 import { CONVENTION, loadManifest } from './manifest.ts';
-import { scanCatalog, scanEnv, scanHealth, scanRegistries, scanScripts } from './misc.ts';
+import { refreshModelCatalog, scanCatalog, scanEnv, scanHealth, scanRegistries, scanScripts } from './misc.ts';
 import { registeredSkillNames, scanCommands, scanSkills } from './skills.ts';
 
 export const TOOL_VERSION = '0.1.0';
@@ -13,8 +13,13 @@ export interface ScanResult {
   error: string | null
 }
 
+export interface ScanOptions {
+  /** Injected into the catalog refresh — tests supply fakes so the suite never touches the network. */
+  fetchImpl?: typeof fetch
+}
+
 /** Orchestrate a full harness scan. Never throws — errors come back structured (plan Phase 2). */
-export function scanHarness(rootInput: string): ScanResult {
+export async function scanHarness(rootInput: string, opts: ScanOptions = {}): Promise<ScanResult> {
   const root = isAbsolute(rootInput) ? rootInput : resolve(rootInput);
 
   if (!existsSync(root)) { return { snapshot: null, error: `harness root does not exist: ${root}` }; }
@@ -32,6 +37,10 @@ export function scanHarness(rootInput: string): ScanResult {
     const envFile = manifest.env?.file ?? CONVENTION.envFile;
     const catalogFile = manifest.models?.catalog ?? CONVENTION.modelCatalog;
     const mainCfg = manifest.models?.main ?? { file: 'opencode.jsonc', jsonPath: 'model' };
+
+    // Await the refresh BEFORE any scan reads the catalog file (spec §3.6 — no read/write race).
+    const refreshWarning = await refreshModelCatalog(root, catalogFile, opts);
+    if (refreshWarning) { warnings.push(refreshWarning); }
 
     const skills = scanSkills(root, skillDirs, warnings);
     const { registered } = registeredSkillNames(root);

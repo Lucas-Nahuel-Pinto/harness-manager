@@ -7,5 +7,7 @@
       "source": "fixture",
       "capabilities": []
     }
-  ]
+  ],
+  "fetchedAt": 4000000000000,
+  "sources": []
 }

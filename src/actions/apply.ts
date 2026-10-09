@@ -26,14 +26,14 @@ export function atomicWrite(absPath: string, content: string): void {
 }
 
 /** Atomic write + full re-scan. The dispatcher guards the path BEFORE calling this. */
-export function applyAndRescan(rootAbs: string, absPath: string, content: string): ApplyResult {
+export async function applyAndRescan(rootAbs: string, absPath: string, content: string): Promise<ApplyResult> {
   try {
     atomicWrite(absPath, content);
   }
   catch (error) {
     return { ok: false, snapshot: null, error: 'write_failed', detail: error instanceof Error ? error.message : String(error) };
   }
-  const { snapshot, error } = scanHarness(rootAbs);
+  const { snapshot, error } = await scanHarness(rootAbs);
   if (!snapshot) {
     return { ok: false, snapshot: null, error: 'rescan_failed', detail: `${error ?? 'scan failed'} — el archivo ya fue escrito` };
   }

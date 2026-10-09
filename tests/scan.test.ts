@@ -5,8 +5,8 @@ import { scanHarness } from '../src/scan/index.ts';
 const FIXTURES = join(import.meta.dir, 'fixtures');
 
 describe('scanHarness', () => {
-  test('mini harness covers every element group', () => {
-    const { snapshot, error } = scanHarness(join(FIXTURES, 'mini-harness'));
+  test('mini harness covers every element group', async () => {
+    const { snapshot, error } = await scanHarness(join(FIXTURES, 'mini-harness'));
     expect(error).toBeNull();
     if (!snapshot) { throw new Error('snapshot missing'); }
 
@@ -58,8 +58,8 @@ describe('scanHarness', () => {
     expect(snapshot.meta.manifest).toBe(false);
   });
 
-  test('minimal harness scans without optional groups', () => {
-    const { snapshot, error } = scanHarness(join(FIXTURES, 'minimal-harness'));
+  test('minimal harness scans without optional groups', async () => {
+    const { snapshot, error } = await scanHarness(join(FIXTURES, 'minimal-harness'));
     expect(error).toBeNull();
     if (!snapshot) { throw new Error('snapshot missing'); }
     expect(snapshot.skills).toHaveLength(1);
@@ -68,8 +68,8 @@ describe('scanHarness', () => {
     expect(snapshot.registries).toHaveLength(0);
   });
 
-  test('broken harness degrades to warnings, never crashes', () => {
-    const { snapshot, error } = scanHarness(join(FIXTURES, 'broken-harness'));
+  test('broken harness degrades to warnings, never crashes', async () => {
+    const { snapshot, error } = await scanHarness(join(FIXTURES, 'broken-harness'));
     expect(error).toBeNull();
     if (!snapshot) { throw new Error('snapshot missing'); }
     expect(snapshot.skills).toHaveLength(1);
@@ -78,8 +78,8 @@ describe('scanHarness', () => {
     expect(snapshot.agents.find(a => a.isMain)).toBeUndefined();
   });
 
-  test('manifest overrides conventional skill path', () => {
-    const { snapshot, error } = scanHarness(join(FIXTURES, 'manifest-harness'));
+  test('manifest overrides conventional skill path', async () => {
+    const { snapshot, error } = await scanHarness(join(FIXTURES, 'manifest-harness'));
     expect(error).toBeNull();
     if (!snapshot) { throw new Error('snapshot missing'); }
     expect(snapshot.meta.manifest).toBe(true);
@@ -88,14 +88,14 @@ describe('scanHarness', () => {
     expect(snapshot.skills[0].path).toBe('custom-skills/greeter/SKILL.md');
   });
 
-  test('nonexistent root errors without throwing', () => {
-    const { snapshot, error } = scanHarness(join(FIXTURES, 'does-not-exist'));
+  test('nonexistent root errors without throwing', async () => {
+    const { snapshot, error } = await scanHarness(join(FIXTURES, 'does-not-exist'));
     expect(snapshot).toBeNull();
     expect(error).toContain('does not exist');
   });
 
-  test('empty harness is rejected as empty scan', () => {
-    const { snapshot, error } = scanHarness(join(FIXTURES, 'empty-harness'));
+  test('empty harness is rejected as empty scan', async () => {
+    const { snapshot, error } = await scanHarness(join(FIXTURES, 'empty-harness'));
     expect(snapshot).toBeNull();
     expect(error).toContain('empty scan');
   });

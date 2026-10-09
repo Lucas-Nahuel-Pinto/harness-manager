@@ -1,7 +1,6 @@
 import { resolve } from 'node:path';
 import { generateCode } from './src/online/pairing.ts';
 import { parseOnlineFlag, startRelayClient } from './src/online/relay-client.ts';
-import { refreshModelCatalogIfAvailable } from './src/scan/misc.ts';
 import { createApp } from './src/server/app.ts';
 
 function argValue(flag: string): string | undefined {
@@ -36,6 +35,3 @@ if (relayUrl) {
   });
   process.on('exit', () => { void relayClient.close(); });
 }
-
-// Fire-and-forget model catalog refresh — async, never blocks the event loop.
-void refreshModelCatalogIfAvailable(rootAbs).catch(() => { /* best effort */ });
