@@ -19,7 +19,7 @@ Double-click a desktop entry → a picker page opens in the browser → choose t
 ## 3. Binding decisions
 
 1. **Picker lives in the launcher** (option B approved): no new stack, no Electron, same process that already serves the dashboard.
-2. **`rootAbs` becomes optional** in `launcher.ts`/`src/launcher/app.ts`. No root → no engine spawn; state `pickedRoot: string | null`. Existing explicit-root flows (`--root`, `HARNESS_ROOT`, cwd default, `--online` autoStart) are UNCHANGED — they skip the picker entirely.
+2. **`rootAbs` becomes optional** in `launcher.ts`/`src/launcher/app.ts`. No root → no engine spawn; state `pickedRoot: string | null`. Explicit-root flows (`--root`, `HARNESS_ROOT`, `--online` after pick) skip the picker. ERRATUM (post-review): the old cwd-default root is RETIRED for launcher mode — running with no flag/env always shows the picker (that is the entry the `.bat`/`.sh` bootstrap relies on). Engine CLI (`bun server.ts`) keeps its own cwd behavior unchanged.
 3. **Browser cannot resolve folder paths** (File System Access / `webkitdirectory` hide absolute paths), so "Examinar…" asks the LAUNCHER to open a native dialog server-side (`src/launcher/browse.ts`, per-OS switch):
    - **Windows**: PowerShell `System.Windows.Forms.FolderBrowserDialog` → `SelectedPath` on stdout; empty stdout = cancelled.
    - **macOS**: `osascript -e 'POSIX path of (choose folder with prompt "Select harness root")'`; user-cancel (exit ≠ 0) = cancelled.
