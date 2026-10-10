@@ -11,3 +11,7 @@ dist/
 data/
 dist-online/
 .wrangler/
+
+.dev.vars*
+!.dev.vars.example
+!.env.example

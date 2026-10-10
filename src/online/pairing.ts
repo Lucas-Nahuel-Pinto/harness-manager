@@ -2,11 +2,11 @@
 
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
-/** Deployed Pages origin (spec §11: committed constant, no secrecy). PLACEHOLDER until Phase 4 deploy. */
-export const PAGES_URL = 'https://PLACEHOLDER.pages.dev';
+/** Deployed hosted-UI origin (spec §11: committed constant, no secrecy). */
+export const PAGES_URL = 'https://harness-manager.harness-manager.workers.dev';
 
-/** Deployed relay Worker WS endpoint. PLACEHOLDER until Phase 4 deploy. */
-export const RELAY_URL = 'wss://PLACEHOLDER.workers.dev/relay';
+/** Deployed relay Worker WS endpoint. */
+export const RELAY_URL = 'wss://harness-manager-relay.harness-manager.workers.dev';
 
 /** Encode bytes as unpadded RFC 4648 base32. */
 export function bytesToCode(bytes: Uint8Array): string {

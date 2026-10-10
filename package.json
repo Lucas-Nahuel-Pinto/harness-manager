@@ -22,7 +22,8 @@
     "format:check": "prettier --check \"**/*.{json,yml,yaml,css,html}\" --ignore-path .prettierignore",
     "format:fix": "prettier --write \"**/*.{json,yml,yaml,css,html}\" --ignore-path .prettierignore",
     "urls:bake": "bun scripts/bake-urls.ts",
-    "repo:check": "bun run format:check && bun run lint && bun run types:check && bun run types:relay && bun test"
+    "repo:check": "bun run format:check && bun run lint && bun run types:check && bun run types:relay && bun test",
+    "deploy:ui": "bun run build:online && wrangler deploy"
   },
   "dependencies": {
     "cytoscape": "^3.34.3",

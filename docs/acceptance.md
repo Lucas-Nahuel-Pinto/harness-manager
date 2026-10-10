@@ -144,12 +144,12 @@ Applies to whichever harness was launched with `bun run serve` (launcher on `127
 
 ## Online mode (Phase 4)
 
-Applies after the Cloudflare deploy (Pages + relay Worker). **L1–L7 (launcher/local checklist) are unchanged by online mode** and remain the local-mode sign-off.
+Applies after the Cloudflare deploy (hosted UI on Workers static assets + relay Worker). **L1–L7 (launcher/local checklist) are unchanged by online mode** and remain the local-mode sign-off.
 
 | # | Check | Expected observation | Done | Notes |
 | --- | --- | --- | --- | --- |
-| L8 | Pairing URL | `bun run online --root <root>` prints `Online: https://<project>.pages.dev/#c=<CODE>` next to the local URL (relay connected) | [ ] | |
-| L9 | Pairing screen | Opening the Pages origin WITHOUT `#c=` shows the pairing screen; pasting the full pairing URL (or the bare code) joins the room | [ ] | |
+| L8 | Pairing URL | `bun run online --root <root>` prints `Online: https://harness-manager.harness-manager.workers.dev/#c=<CODE>` next to the local URL (relay connected) | [ ] | |
+| L9 | Pairing screen | Opening the hosted origin WITHOUT `#c=` shows the pairing screen; pasting the full pairing URL (or the bare code) joins the room | [ ] | |
 | L10 | Second network | A phone on a different network opens the pairing URL → snapshot renders over the relay | [ ] | |
 | L11 | Staged action | ONE staged action over the relay (e.g. MCP toggle or Re-scan) → diff shown → confirm → applied → re-scan reflects it | [ ] | |
 | L12 | Offline + reconnect | Stop the engine → UI shows the offline banner; restart the engine → new pairing URL printed, pasting it reconnects (old room is dead) | [ ] | |

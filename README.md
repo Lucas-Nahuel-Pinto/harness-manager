@@ -47,7 +47,7 @@ Scan root resolution: `--root <path>` flag → `HARNESS_ROOT` env var → curren
 
 ## Online mode (web)
 
-Open the full dashboard from **any device on any network** while every harness file and credential stays on the operator's machine. A hosted static UI (Cloudflare Pages) talks to the local engine through an end-to-end-encrypted relay (Cloudflare Worker + Durable Object). The browser is a remote control, not a file store: the relay only forwards opaque AES-GCM frames and never sees the session code, the key, or any harness data.
+Open the full dashboard from **any device on any network** while every harness file and credential stays on the operator's machine. A hosted static UI (Cloudflare Workers static assets) talks to the local engine through an end-to-end-encrypted relay (Cloudflare Worker + Durable Object). The browser is a remote control, not a file store: the relay only forwards opaque AES-GCM frames and never sees the session code, the key, or any harness data.
 
 ### Security model
 
@@ -65,7 +65,8 @@ The engine always binds `127.0.0.1` and only makes **outbound** connections to t
 | Command | Effect |
 | --- | --- |
 | `bun run online` | Online build + engine with `--online`; prints `Online: <PAGES_URL>/#c=<CODE>` next to the local URL |
-| `bun run build:online` | UI build for Pages → `dist-online/` (no embedded snapshot, empty "esperando motor" state) |
+| `bun run build:online` | UI build for the hosted origin → `dist-online/` (no embedded snapshot, empty "esperando motor" state) |
+| `bun run deploy:ui` | `build:online` + `wrangler deploy` (root `wrangler.jsonc` serves `dist-online/`) |
 | `bun run relay:dev` | Local relay on `ws://127.0.0.1:8788` — same routing logic as the deployed Worker |
 | `bun run urls:bake <pagesUrl> <relayUrl>` | Bake the deployed URLs into the committed constants in `src/online/pairing.ts` |
 
@@ -73,18 +74,16 @@ The engine always binds `127.0.0.1` and only makes **outbound** connections to t
 
 ```bash
 bunx wrangler login                                # once, interactive — user-owned credentials
-bun run urls:bake https://<project>.pages.dev wss://harness-manager-relay.<sub>.workers.dev/relay
-bun run build:online
-bunx wrangler deploy -c relay/wrangler.toml        # Worker + Durable Object (dumb relay, no secrets)
-bunx wrangler pages project create <project>       # first deploy only
-bunx wrangler pages deploy dist-online --project-name <project>
+bun run urls:bake https://harness-manager.harness-manager.workers.dev wss://harness-manager-relay.harness-manager.workers.dev
+bunx wrangler deploy -c relay/wrangler.toml        # relay Worker + Durable Object (dumb relay, no secrets)
+bun run deploy:ui                                  # build:online + wrangler deploy → hosted UI
 ```
 
-Re-deploying an update repeats the bake (if the URLs changed) + build + the two deploy commands. The Worker holds no secrets and no harness data; changing a URL is a normal commit + redeploy.
+Re-deploying an update repeats `deploy:ui` (and the relay command only when `relay/` changed). The Worker holds no secrets and no harness data; changing a URL is a normal commit + redeploy. Gotcha: if wrangler prints `Using redirected Wrangler configuration: dist\wrangler.json`, delete `.wrangler/deploy/` first — it is a stale redirect from project creation that would redeploy the wrong (local, data-embedded) build.
 
 ### Pairing flow
 
-1. `bun run online --root <harness>` — the engine prints `Online: https://<project>.pages.dev/#c=<CODE>` next to the local URL once the relay connection is up.
+1. `bun run online --root <harness>` — the engine prints `Online: https://harness-manager.harness-manager.workers.dev/#c=<CODE>` next to the local URL once the relay connection is up.
 2. Open that URL from any device (the code lives in the fragment, so it is never transmitted). A hosted origin without `#c=` shows the pairing screen — paste the full pairing URL or the bare code.
 3. The UI derives the room + key from the code identically to the engine, joins the relay, and streams the snapshot end-to-end-encrypted. Stop the engine → the UI shows the offline banner; restart → new code, new room (the old room dies with the old engine).
 
