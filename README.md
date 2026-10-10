@@ -25,7 +25,7 @@ No `.env` needed: the scanner only reads files inside the target harness root. E
 | `bun run format:check` / `bun run format:fix` | Prettier |
 | `bun run repo:check` | Full gate: `format:check` → `lint` → `types:check` → `test` |
 
-Scan root resolution: `--root <path>` flag → `HARNESS_ROOT` env var → current working directory. An optional `harness.json` in the target root declares non-standard locations (skills globs, models config); auto-detection covers the well-known paths out of the box.
+Scan root resolution: `--root <path>` flag → `HARNESS_ROOT` env var → current working directory (for `pull` / `build` / engine CLI). Exception: `bun run serve` without either opens the launcher **root picker** instead of defaulting to cwd — see [Desktop entry](#desktop-entry). An optional `harness.json` in the target root declares non-standard locations (skills globs, models config); auto-detection covers the well-known paths out of the box.
 
 ## Server control
 
@@ -42,8 +42,32 @@ Scan root resolution: `--root <path>` flag → `HARNESS_ROOT` env var → curren
 | --- | --- |
 | `--port <n>` / `HM_LAUNCHER_PORT` | Launcher port (default `7397`) |
 | `HM_NO_OPEN=1` | Don't auto-open the browser on launcher start |
-| `--root <path>` | Harness root for both launcher and engine (default: cwd) |
+| `--root <path>` | Harness root (launcher + engine). Omitted in `serve`: picker page instead of cwd default. Engine CLI default: cwd |
 | `--port <n>` / `HM_PORT` | Engine port when running `bun run engine` directly (default `0` = random) |
+
+### Desktop entry
+
+Double-click the launcher without typing a command: `start-harness-manager.bat` (Windows) or `start-harness-manager.sh` (POSIX — `chmod +x start-harness-manager.sh` once) starts `bun run serve` with no root, so the browser opens a **root picker**:
+
+- **Recents** — last 10 harness roots (MRU, `data/recents.json`), one click to start.
+- **Examinar…** — native OS folder dialog opened by the launcher (PowerShell dialog on Windows, `osascript` on macOS, `zenity`/`kdialog` on Linux). If no dialog tool exists on Linux, a toast points you to the manual input.
+- **Manual input** — type or paste any absolute path (universal fallback on every OS).
+
+After the pick, the engine spawns with that root (forwarding `--online` args if present) and the page becomes the normal dashboard. No harness switching while running — restart the launcher to change root. To skip the picker entirely, pass `--root` / `HARNESS_ROOT` as before.
+
+To double-click without a console window on Windows, point a shortcut at:
+
+```
+wscript.exe //B //Nologo "<path>\hide-and-run.vbs"
+```
+
+with a `hide-and-run.vbs` you create yourself (not committed):
+
+```vbs
+CreateObject("Wscript.Shell").Run """C:\path\to\harness-manager\start-harness-manager.bat""", 0, False
+```
+
+On macOS, Finder users can duplicate `start-harness-manager.sh` and rename it to `start-harness-manager.command` (or add an Alias to the Dock); on Linux, add a `.desktop` launcher whose `Exec` points at the `.sh`.
 
 ## Model catalog
 

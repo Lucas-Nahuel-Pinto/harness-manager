@@ -177,3 +177,22 @@ Applies after the catalog-ownership phase (fetch moved from the boilerplate into
 | Role | Name | Date | Done |
 | --- | --- | --- | --- |
 | User | | | [ ] |
+
+---
+
+## Launcher root picker
+
+Applies after the root-picker phase (`bun run serve` without `--root`/`HARNESS_ROOT`).
+
+| # | Check | Expected observation | Done | Notes |
+| --- | --- | --- | --- | --- |
+| L16 | Desktop entry | Double-click `start-harness-manager.bat` (or run the `.sh`) → browser opens the picker page; recents list shown (empty on first run) | [ ] | |
+| L17 | Pick → dashboard | **Examinar…** opens the native folder dialog → select a valid harness root → engine spawns, page becomes the dashboard for that root. Accented/`ñ` path works on Windows | [ ] | |
+| L18 | Recents + validation | After L17, the root is the first recents entry and survives a launcher restart (MRU, cap 10). Relative path / missing path / a plain file → toast with the 400 message, still on the picker. Linux without zenity/kdialog → Examinar toasts and the manual input still works | [ ] | |
+| L19 | POSIX smoke | `start-harness-manager.sh` on Linux or macOS: picker loads, pick via manual input starts the engine (dialog path when zenity/kdialog present) | [ ] | |
+
+**Sign-off**
+
+| Role | Name | Date | Done |
+| --- | --- | --- | --- |
+| User | | | [ ] |
