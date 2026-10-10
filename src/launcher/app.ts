@@ -1,6 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
 import { corsPreflight, withCors } from '../server/cors.ts';
+import { pickFolder as defaultPickFolder } from './browse.ts';
+import { pickerHtml } from './picker.ts';
+import { addRecent, loadRecents, saveRecents } from './recents.ts';
 
 /** A spawned (or fake) engine process. `ready` resolves with the engine base URL. */
 export interface EngineHandle {
@@ -13,14 +16,18 @@ export interface EngineHandle {
 }
 
 export interface LauncherOptions {
-  /** DI — tests inject fake handles (no real process). */
-  spawnEngine: () => EngineHandle
+  /** DI — tests inject fake handles (no real process). Receives the picked harness root. */
+  spawnEngine: (root: string) => EngineHandle
   /** DI — tests assert kill calls; must reject on failure. */
   killEngine: (handle: EngineHandle) => Promise<void>
   /** Test seam — defaults to the repo's built `dist/index.html`. */
   distIndex?: string
-  /** `--online` semantics: spawn the engine immediately (pairing URL prints without a UI click). */
+  /** `--online` semantics: spawn the engine immediately (pairing URL prints without a UI click). Ignored while no root is picked — spawn defers past the pick. */
   autoStart?: boolean
+  /** Recents persistence — defaults to the repo's `data/recents.json`. Tests point it at a temp file. */
+  recentsFile?: string
+  /** DI — native folder dialog; defaults to the real `pickFolder` (never invoked in tests). */
+  pickFolder?: () => Promise<string | null>
 }
 
 export type EngineState = 'running' | 'starting' | 'stopped';
@@ -29,6 +36,7 @@ export interface LauncherStatus {
   ok: boolean
   engine: EngineState
   engineUrl: string | null
+  /** Picked harness root; `''` while the picker is still showing. */
   root: string
   pid: number | null
   error?: string
@@ -36,6 +44,7 @@ export interface LauncherStatus {
 }
 
 const DEFAULT_DIST_INDEX = resolve(import.meta.dir, '..', '..', 'dist', 'index.html');
+const DEFAULT_RECENTS_FILE = resolve(import.meta.dir, '..', '..', 'data', 'recents.json');
 const READY_TIMEOUT_MS = 8000;
 const STOP_TIMEOUT_MS = 5000;
 
@@ -205,12 +214,15 @@ export async function killEngineProcess(handle: EngineHandle): Promise<void> {
 
 /**
  * Launcher request handler (no sockets) — the entry `launcher.ts` binds it to 127.0.0.1:7397.
- * Routes: GET / (built UI + launcher flags) · GET /api/status · POST /api/start · POST /api/stop.
+ * Routes: GET / (picker page while no root is picked, built UI after) · GET /api/status ·
+ * GET /api/recents · POST /api/browse · POST /api/root · POST /api/start · POST /api/stop.
  */
-export function createLauncher(rootInput: string, options: LauncherOptions): (req: Request) => Promise<Response> {
-  const rootAbs = resolve(rootInput);
+export function createLauncher(rootInput: string | null, options: LauncherOptions): (req: Request) => Promise<Response> {
   const distIndex = options.distIndex ?? DEFAULT_DIST_INDEX;
+  const recentsFile = options.recentsFile ?? DEFAULT_RECENTS_FILE;
+  const pickFolderImpl = options.pickFolder ?? defaultPickFolder;
   const state = {
+    pickedRoot: rootInput === null ? null : resolve(rootInput),
     engine: 'stopped' as EngineState,
     engineUrl: null as string | null,
     pid: null as number | null,
@@ -225,7 +237,7 @@ export function createLauncher(rootInput: string, options: LauncherOptions): (re
       ok: true,
       engine: state.engine,
       engineUrl: state.engineUrl,
-      root: rootAbs,
+      root: state.pickedRoot ?? '',
       pid: state.pid,
       ...(state.error ? { error: state.error } : {}),
       ...(extra?.already ? { already: true } : {}),
@@ -250,12 +262,14 @@ export function createLauncher(rootInput: string, options: LauncherOptions): (re
   }
 
   async function start(): Promise<Response> {
+    const pickedRoot = state.pickedRoot;
+    if (pickedRoot === null) { return json(400, { ok: false, error: 'no_root', detail: 'Elegí un harness antes de iniciar el motor.' }); }
     if (state.handle) { return json(200, statusBody({ already: true })); }
     state.engine = 'starting';
     state.error = undefined;
     let handle: EngineHandle | null = null;
     try {
-      handle = options.spawnEngine();
+      handle = options.spawnEngine(pickedRoot);
       state.handle = handle;
       state.pid = handle.pid;
       watchExit(handle);
@@ -304,13 +318,61 @@ export function createLauncher(rootInput: string, options: LauncherOptions): (re
     }
   }
 
-  if (options.autoStart) { void start(); }
+  /** POST /api/root — validate the picked path, spawn, then record it in recents (spec §3.5/§3.6). */
+  async function setRoot(req: Request): Promise<Response> {
+    let payload: unknown = null;
+    try { payload = await req.json(); }
+    catch { return json(400, { ok: false, error: 'invalid_root', detail: 'El cuerpo debe ser JSON con la propiedad path.' }); }
+    const path = (payload as { path?: unknown } | null)?.path;
+    if (typeof path !== 'string' || path.trim() === '') {
+      return json(400, { ok: false, error: 'invalid_root', detail: 'Falta la ruta del harness (path).' });
+    }
+    if (!isAbsolute(path)) {
+      return json(400, { ok: false, error: 'invalid_root', detail: `La ruta debe ser absoluta: ${path}` });
+    }
+    if (!existsSync(path)) {
+      return json(400, { ok: false, error: 'invalid_root', detail: `La ruta no existe: ${path}` });
+    }
+    let directory = false;
+    try { directory = statSync(path).isDirectory(); }
+    catch { directory = false; } // deleted between checks — spec §5: same 400 as invalid
+    if (!directory) {
+      return json(400, { ok: false, error: 'invalid_root', detail: `La ruta no es un directorio: ${path}` });
+    }
+    state.pickedRoot = path;
+    const started = await start();
+    if (started.status !== 200) { return started; } // spawn failed — pickedRoot stays so Iniciar can retry
+    try {
+      saveRecents(recentsFile, addRecent(loadRecents(recentsFile), path));
+    }
+    catch { /* recents persistence must not fail a successful pick */ }
+    return json(200, statusBody());
+  }
+
+  /** POST /api/browse — native folder dialog (injectable); cancel stays a 200 no-op (spec §5). */
+  async function browse(): Promise<Response> {
+    try {
+      const path = await pickFolderImpl();
+      if (path === null) { return json(200, { ok: true, cancelled: true }); }
+      return json(200, { ok: true, path });
+    }
+    catch (error) {
+      const code = (error as { code?: unknown }).code;
+      const stable = code === 'browse_unsupported' || code === 'browse_failed' ? code : 'browse_failed';
+      return json(500, { ok: false, error: stable, detail: messageOf(error) });
+    }
+  }
+
+  if (options.autoStart && state.pickedRoot !== null) { void start(); }
 
   return async function handleRequest(req: Request): Promise<Response> {
     if (req.method === 'OPTIONS') { return corsPreflight(); }
     const { pathname } = new URL(req.url);
 
     if (pathname === '/api/status' && req.method === 'GET') { return json(200, statusBody()); }
+    if (pathname === '/api/recents' && req.method === 'GET') { return json(200, { ok: true, recents: loadRecents(recentsFile) }); }
+    if (pathname === '/api/browse' && req.method === 'POST') { return browse(); }
+    if (pathname === '/api/root' && req.method === 'POST') { return setRoot(req); }
     if (pathname === '/api/start' && req.method === 'POST') { return start(); }
     if (pathname === '/api/stop' && req.method === 'POST') { return stop(); }
     if (pathname.startsWith('/api/')) {
@@ -318,10 +380,14 @@ export function createLauncher(rootInput: string, options: LauncherOptions): (re
     }
 
     if (pathname === '/' && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (state.pickedRoot === null) {
+        const html = pickerHtml(loadRecents(recentsFile));
+        return withCors(new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } }));
+      }
       if (!existsSync(distIndex)) {
         return json(503, { ok: false, error: 'build_missing', detail: 'Ejecutá `bun run build` antes de usar el launcher (falta dist/index.html)' });
       }
-      const html = injectLauncherFlags(readFileSync(distIndex, 'utf8'), rootAbs);
+      const html = injectLauncherFlags(readFileSync(distIndex, 'utf8'), state.pickedRoot);
       return withCors(new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } }));
     }
     return json(404, { ok: false, error: 'not_found', detail: `${req.method} ${pathname}` });

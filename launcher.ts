@@ -23,7 +23,11 @@ function openBrowser(url: string): void {
   catch { /* best effort — the printed URL always works */ }
 }
 
-const rootAbs = resolve(argValue('--root') ?? process.cwd());
+// Root resolution: --root flag → HARNESS_ROOT env → null (cwd default retired per spec erratum).
+// No root → the launcher serves the picker page and spawns the engine only after a pick.
+const rootFlag = argValue('--root');
+const rootEnv = process.env.HARNESS_ROOT;
+const rootAbs = rootFlag ? resolve(rootFlag) : (rootEnv ? resolve(rootEnv) : null);
 const portRaw = argValue('--port') ?? process.env.HM_LAUNCHER_PORT ?? '7397';
 const port = Number(portRaw);
 const repoRoot = resolve(import.meta.dir);
@@ -36,9 +40,10 @@ const server = Bun.serve({
   hostname: '127.0.0.1', // loopback only — never 0.0.0.0
   port: Number.isInteger(port) && port >= 1 && port <= 65535 ? port : 7397,
   fetch: createLauncher(rootAbs, {
+    // Deferred past the pick when no root: autoStart only fires with an explicit root (§3.8).
     autoStart: engineOnlineArgs.length > 0,
-    spawnEngine: () => {
-      activeEngine = spawnEngineProcess(repoRoot, rootAbs, engineOnlineArgs);
+    spawnEngine: (root: string) => {
+      activeEngine = spawnEngineProcess(repoRoot, root, engineOnlineArgs);
       return activeEngine;
     },
     killEngine: async (handle) => {
@@ -66,5 +71,5 @@ process.on('exit', () => {
 });
 
 const url = `http://127.0.0.1:${server.port}/`;
-console.log(`Harness Manager (launcher) en ${url} · root: ${rootAbs}`);
+console.log(`Harness Manager (launcher) en ${url} · root: ${rootAbs ?? '(elegir en el picker)'}`);
 if (process.env.HM_NO_OPEN !== '1') { openBrowser(url); }
