@@ -36,6 +36,7 @@ const server = Bun.serve({
   hostname: '127.0.0.1', // loopback only — never 0.0.0.0
   port: Number.isInteger(port) && port >= 1 && port <= 65535 ? port : 7397,
   fetch: createLauncher(rootAbs, {
+    autoStart: engineOnlineArgs.length > 0,
     spawnEngine: () => {
       activeEngine = spawnEngineProcess(repoRoot, rootAbs, engineOnlineArgs);
       return activeEngine;

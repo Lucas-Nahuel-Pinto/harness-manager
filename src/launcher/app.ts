@@ -19,6 +19,8 @@ export interface LauncherOptions {
   killEngine: (handle: EngineHandle) => Promise<void>
   /** Test seam — defaults to the repo's built `dist/index.html`. */
   distIndex?: string
+  /** `--online` semantics: spawn the engine immediately (pairing URL prints without a UI click). */
+  autoStart?: boolean
 }
 
 export type EngineState = 'running' | 'starting' | 'stopped';
@@ -301,6 +303,8 @@ export function createLauncher(rootInput: string, options: LauncherOptions): (re
       return json(500, { ...statusBody(), ok: false, error: 'kill_failed', detail });
     }
   }
+
+  if (options.autoStart) { void start(); }
 
   return async function handleRequest(req: Request): Promise<Response> {
     if (req.method === 'OPTIONS') { return corsPreflight(); }

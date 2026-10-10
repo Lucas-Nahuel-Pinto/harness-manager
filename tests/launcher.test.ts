@@ -279,3 +279,24 @@ describe('engine CORS (launcher-origin page calls a cross-port engine)', () => {
     expect(response.headers.get('access-control-allow-origin')).toBe('*');
   });
 });
+
+describe('autoStart (--online)', () => {
+  test('spawns the engine without an HTTP request and reaches running', async () => {
+    const engine = fakeEngine();
+    const { app, state } = build(engine, { autoStart: true });
+    expect(state.spawns).toBe(1); // synchronous spawn during createLauncher
+    engine.ready.resolve('http://127.0.0.1:41001');
+    let status: Json = {};
+    for (let i = 0; i < 50 && status.engine !== 'running'; i++) {
+      status = await body(await app(request('/api/status')));
+      await new Promise(r => setTimeout(r, 10));
+    }
+    expect(status).toMatchObject({ engine: 'running', engineUrl: 'http://127.0.0.1:41001', pid: 4242 });
+  });
+
+  test('without autoStart nothing spawns (local launcher flow unchanged)', () => {
+    const engine = fakeEngine();
+    const { state } = build(engine);
+    expect(state.spawns).toBe(0);
+  });
+});
