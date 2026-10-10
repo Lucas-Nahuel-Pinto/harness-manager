@@ -45,6 +45,12 @@ Scan root resolution: `--root <path>` flag → `HARNESS_ROOT` env var → curren
 | `--root <path>` | Harness root for both launcher and engine (default: cwd) |
 | `--port <n>` / `HM_PORT` | Engine port when running `bun run engine` directly (default `0` = random) |
 
+## Model catalog
+
+Harness-manager owns the model-catalog fetch — the harness only reads the file (offline-graceful: missing or stale → model-dependent features skip, nothing crashes). On every rescan, if the harness declares interest (manifest `models`, an existing `.models.catalog.json`, or a `harness-config` script) and the catalog is missing or older than 24h, the engine fetches it natively (no subprocess), writes it atomically, and only then scans. On total fetch failure the old file stays untouched and the snapshot carries a refresh warning.
+
+Sources: the public OpenCode Zen endpoints plus `models.dev` metadata (deprecated models filtered). Provider endpoints (Google / Anthropic / OpenAI / DeepSeek / Kimi) are added only when their key exists in harness-manager's own `process.env` — keys are used transiently in the request and never persisted, displayed, or read from harness `.env` files. `MODELS_CATALOG_URLS` (comma-separated) overrides the source list; `MODELS_CACHE_TTL` (seconds) overrides the staleness TTL.
+
 ## Online mode (web)
 
 Open the full dashboard from **any device on any network** while every harness file and credential stays on the operator's machine. A hosted static UI (Cloudflare Workers static assets) talks to the local engine through an end-to-end-encrypted relay (Cloudflare Worker + Durable Object). The browser is a remote control, not a file store: the relay only forwards opaque AES-GCM frames and never sees the session code, the key, or any harness data.

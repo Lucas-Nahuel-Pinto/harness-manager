@@ -159,3 +159,21 @@ Applies after the Cloudflare deploy (hosted UI on Workers static assets + relay 
 | Role | Name | Date | Done |
 | --- | --- | --- | --- |
 | User | | | [ ] |
+
+---
+
+## Model catalog (ownership)
+
+Applies after the catalog-ownership phase (fetch moved from the boilerplate into harness-manager).
+
+| # | Check | Expected observation | Done | Notes |
+| --- | --- | --- | --- | --- |
+| L13 | Stale refresh | Deleting or aging `.models.catalog.json` in the harness root + Re-scan → file rewritten atomically (`fetchedAt` updated, `sources` populated), registry card shows entry count, model-set validates against the refreshed list | [ ] | |
+| L14 | No-interest harness | A root without manifest `models`, without a catalog file and without a `harness-config` script is never written to (no `.models.catalog.json` appears after Re-scan) | [ ] | |
+| L15 | Degraded fetch | With sources unreachable, the old catalog stays intact, the snapshot carries a refresh warning, and the rescan still succeeds | [ ] | |
+
+**Sign-off**
+
+| Role | Name | Date | Done |
+| --- | --- | --- | --- |
+| User | | | [ ] |
