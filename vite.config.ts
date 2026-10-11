@@ -1,18 +1,16 @@
 import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 
-export default defineConfig(({ mode }) => {
-  const online = mode === 'online';
-  return {
-    plugins: [viteSingleFile()],
-    define: {
-      // Online build embeds no snapshot (src/snapshot.ts exports the empty shell instead).
-      __HM_ONLINE__: JSON.stringify(online),
-    },
-    build: {
-      target: 'esnext',
-      outDir: online ? 'dist-online' : 'dist',
-      emptyOutDir: true,
-    },
-  };
+// Online-only build (spec 2026-10-11 §3.6): the UI lives on the hosted site, the bundle embeds
+// ZERO harness data. Local dev: `bun server.ts --port 7399` + `bun run dev` — /api proxied.
+export default defineConfig({
+  plugins: [viteSingleFile()],
+  build: {
+    target: 'esnext',
+    outDir: 'dist-online',
+    emptyOutDir: true,
+  },
+  server: {
+    proxy: { '/api': 'http://127.0.0.1:7399' },
+  },
 });

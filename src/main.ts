@@ -10,7 +10,6 @@ import { parseCodeFromHash, RELAY_URL } from './online/pairing.ts';
 import { WSTransport } from './online/transport.ts';
 import { refreshSnapshot } from './refresh.ts';
 import { actionsEnabled, actionsHint, enableOnlineMode } from './serve.ts';
-import { renderServerControl, startServerControl } from './server-control.ts';
 import {
   ALL_GRAPH_KINDS,
   getState,
@@ -79,8 +78,7 @@ function bootApp(mode: UiMode): void {
     <span class="spacer"></span>
     <span id="warn-slot"></span>
     <span class="conn-badge" id="conn-badge" hidden></span>
-    <span id="server-control"></span>
-    <span class="badge-ro serve" id="mode-badge">modo serve · escritura</span>
+    <span class="badge-ro serve" id="mode-badge">${mode === 'online' ? 'modo online · escritura' : 'modo local · escritura'}</span>
   </header>
   <div class="conn-banner" id="conn-banner" hidden>Sin conexión con el motor — reintentando…</div>
   <nav class="tabs" id="tabs"></nav>
@@ -91,8 +89,7 @@ function bootApp(mode: UiMode): void {
       <input id="search" class="search" type="search" placeholder="nombre, ruta o descripción (/)" autocomplete="off" />
       <div id="filter-controls"></div>
       <div class="filter-actions">
-        <button class="action" id="btn-rescan" disabled title="Requiere serve (Fase 5)">Re-scan</button>
-        <button class="action" disabled title="Correr bun run build en terminal">Build</button>
+        <button class="action" id="btn-rescan" disabled>Re-scan</button>
       </div>
     </nav>
     <main class="view" id="view"></main>
@@ -238,7 +235,6 @@ function bootApp(mode: UiMode): void {
     applyCollapse();
     renderView();
     renderDetail(detailBodyEl);
-    renderServerControl();
     const rescan = document.getElementById('btn-rescan') as HTMLButtonElement | null;
     if (rescan) {
       rescan.disabled = !actionsEnabled();
@@ -279,7 +275,6 @@ function bootApp(mode: UiMode): void {
   render();
   renderFreshness();
   window.setInterval(renderFreshness, 60_000);
-  startServerControl();
 }
 
 function renderConnBadge(status: TransportStatus): void {

@@ -1,6 +1,4 @@
 import { resolve } from 'node:path';
-import { generateCode } from './src/online/pairing.ts';
-import { parseOnlineFlag, startRelayClient } from './src/online/relay-client.ts';
 import { createApp } from './src/server/app.ts';
 
 function argValue(flag: string): string | undefined {
@@ -9,6 +7,8 @@ function argValue(flag: string): string | undefined {
   return index !== -1 ? argv[index + 1] : undefined;
 }
 
+// Diagnostic/dev entry (spec 2026-10-11 §3.7): API-only loopback, NO UI, NO relay.
+// The online path is owned exclusively by `agent.ts`.
 const rootAbs = resolve(argValue('--root') ?? process.cwd());
 const portRaw = argValue('--port') ?? process.env.HM_PORT ?? '0';
 const port = Number(portRaw);
@@ -20,18 +20,3 @@ const server = Bun.serve({
 });
 
 console.log(`Harness Manager sirviendo en http://127.0.0.1:${server.port} · root: ${rootAbs}`);
-
-const relayUrl = parseOnlineFlag(process.argv.slice(2));
-if (relayUrl) {
-  const code = generateCode();
-  const relayClient = startRelayClient({
-    relayUrl,
-    code,
-    rootAbs,
-    fetchHandler,
-    onConnect: (url) => { console.log(`Online: ${url}`); },
-    onDisconnect: () => { console.log('relay perdido — reintentando…'); },
-    log: (message) => { console.log(message); },
-  });
-  process.on('exit', () => { void relayClient.close(); });
-}

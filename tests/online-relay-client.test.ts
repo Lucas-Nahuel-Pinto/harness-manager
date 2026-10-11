@@ -5,9 +5,9 @@ import { resolve } from 'node:path';
 import { describe, expect, test } from 'bun:test';
 import { startDevRelay } from '../relay/dev.ts';
 import { decryptFrame, deriveKey, encryptFrame } from '../src/online/crypto.ts';
-import { generateCode, PAGES_URL, pairingUrl, RELAY_URL } from '../src/online/pairing.ts';
+import { generateCode, PAGES_URL, pairingUrl } from '../src/online/pairing.ts';
 import { decodePayload, isPresence } from '../src/online/protocol.ts';
-import { parseOnlineArgv, parseOnlineFlag, startRelayClient } from '../src/online/relay-client.ts';
+import { startRelayClient } from '../src/online/relay-client.ts';
 import { createApp } from '../src/server/app.ts';
 
 const FIXTURE = resolve(import.meta.dir, 'fixtures', 'mini-harness');
@@ -135,31 +135,6 @@ async function spawnEngine(args: string[]): Promise<EngineProc> {
   };
   return { out: () => out, kill, waitExit: async () => proc.exited };
 }
-
-describe('--online flag parsing', () => {
-  test('flag absent → null and no tokens (relay client stays untouched)', () => {
-    expect(parseOnlineFlag(['--root', 'C:/h', '--port', '0'])).toBeNull();
-    expect(parseOnlineFlag([])).toBeNull();
-    expect(parseOnlineArgv(['--root', 'C:/h'])).toEqual([]);
-  });
-
-  test('--online without URL falls back to the RELAY_URL constant', () => {
-    expect(parseOnlineFlag(['--online'])).toBe(RELAY_URL);
-    expect(parseOnlineArgv(['--online'])).toEqual(['--online']);
-  });
-
-  test('--online <ws URL> uses the URL and never swallows the next flag', () => {
-    expect(parseOnlineFlag(['--online', 'ws://127.0.0.1:8788', '--root', 'C:/h'])).toBe('ws://127.0.0.1:8788');
-    expect(parseOnlineArgv(['--online', 'ws://127.0.0.1:8788'])).toEqual(['--online', 'ws://127.0.0.1:8788']);
-    expect(parseOnlineFlag(['--root', 'C:/h', '--online'])).toBe(RELAY_URL);
-    expect(parseOnlineArgv(['--online', '--root', 'C:/h'])).toEqual(['--online']);
-  });
-
-  test('--relay is not a supported form — one documented flag only', () => {
-    expect(parseOnlineFlag(['--relay', 'ws://127.0.0.1:8788'])).toBeNull();
-    expect(parseOnlineArgv(['--relay', 'ws://127.0.0.1:8788'])).toEqual([]);
-  });
-});
 
 describe('relay client ↔ dev relay integration', () => {
   test('GET /api/snapshot roundtrip through the real createApp', async () => {
@@ -337,8 +312,8 @@ describe('relay client ↔ dev relay integration', () => {
   }, 10000);
 });
 
-describe('engine entry wiring (--online flag)', () => {
-  test('without --online: ready line as before, zero relay output', async () => {
+describe('engine entry wiring (loopback-only diagnostic)', () => {
+  test('ready line, zero relay output — the online path belongs to agent.ts', async () => {
     const engine = await spawnEngine([]);
     try {
       await waitFor(() => /sirviendo en http:\/\/127\.0\.0\.1:\d+/.test(engine.out()), 8000, 'ready del motor');
@@ -355,26 +330,4 @@ describe('engine entry wiring (--online flag)', () => {
       await engine.waitExit();
     }
   }, 20000);
-
-  test('--online against a dead relay: serves local, logs the outage exactly once, never prints Online', async () => {
-    const engine = await spawnEngine(['--online', 'ws://127.0.0.1:1']);
-    try {
-      await waitFor(() => engine.out().includes('sirviendo en'), 8000, 'ready del motor');
-      await waitFor(() => engine.out().includes('relay inaccesible'), 5000, 'log de relay caído');
-      expect(engine.out()).not.toContain('Online:');
-
-      const port = /http:\/\/127\.0\.0\.1:(\d+)/.exec(engine.out())?.[1];
-      expect(port).toBeDefined();
-      const response = await fetch(`http://127.0.0.1:${port}/api/snapshot`);
-      expect(response.status).toBe(200);
-
-      await sleep(1500); // el primer retry (~1s) ya falló en silencio — el log no debe repetirse
-      expect(engine.out().split('relay inaccesible').length - 1).toBe(1);
-      expect(engine.out()).not.toContain('Online:');
-    }
-    finally {
-      engine.kill();
-      await engine.waitExit();
-    }
-  }, 30000);
 });

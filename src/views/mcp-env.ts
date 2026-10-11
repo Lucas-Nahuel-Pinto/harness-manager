@@ -1,7 +1,7 @@
 import { escapeHtml } from '../components/detail-panel.ts';
 import { env, envId, envMatches, mcpMatches, mcps } from '../model.ts';
 import { runStagedAction } from '../refresh.ts';
-import { actionsEnabled, actionsHint, isFileMode } from '../serve.ts';
+import { actionsEnabled, actionsHint } from '../serve.ts';
 import { getState, select } from '../state.ts';
 
 const CLAUDE_HINT = 'Claude Code no aplica "enabled" en .mcp.json — el flag solo surte efecto en opencode.jsonc';
@@ -16,10 +16,8 @@ export function renderMcpEnv(container: HTMLElement): void {
       ? mcp.envRefs.map(ref => `<span class="chip">${escapeHtml(ref)}</span>`).join('')
       : '<span class="muted">sin env refs</span>';
     const canAct = actionsEnabled();
-    const toggle = isFileMode
-      ? ''
-      : `<button class="action mcp-toggle" data-toggle-mcp="${escapeHtml(mcp.id)}"${canAct ? '' : ' disabled'}${canAct ? '' : ` title="${escapeHtml(actionsHint())}"`}>${mcp.enabled ? 'Deshabilitar' : 'Habilitar'}</button>`;
-    const hint = !isFileMode && mcp.configFile === '.mcp.json'
+    const toggle = `<button class="action mcp-toggle" data-toggle-mcp="${escapeHtml(mcp.id)}"${canAct ? '' : ' disabled'}${canAct ? '' : ` title="${escapeHtml(actionsHint())}"`}>${mcp.enabled ? 'Deshabilitar' : 'Habilitar'}</button>`;
+    const hint = mcp.configFile === '.mcp.json'
       ? `<span class="mcp-hint" title="${escapeHtml(CLAUDE_HINT)}">Claude Code no lee <code>enabled</code> aquí</span>`
       : '';
     return `

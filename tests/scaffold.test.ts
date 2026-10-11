@@ -5,7 +5,7 @@ describe('scaffold', () => {
     const pkg = (await Bun.file(new URL('../package.json', import.meta.url)).json()) as {
       scripts: Record<string, string>
     };
-    for (const script of ['pull', 'build', 'serve', 'test', 'types:check', 'lint', 'repo:check']) {
+    for (const script of ['pull', 'agent', 'engine', 'build:online', 'test', 'types:check', 'lint', 'repo:check']) {
       expect(pkg.scripts[script]).toBeString();
     }
   });

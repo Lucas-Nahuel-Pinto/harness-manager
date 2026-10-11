@@ -2,7 +2,7 @@ import type { AgentEl } from '../types.ts';
 import { escapeHtml } from '../components/detail-panel.ts';
 import { agentMatches, agents, catalogModels } from '../model.ts';
 import { runStagedAction } from '../refresh.ts';
-import { actionsEnabled, actionsHint, isFileMode } from '../serve.ts';
+import { actionsEnabled, actionsHint } from '../serve.ts';
 import { getState, select } from '../state.ts';
 
 function modelChip(agent: AgentEl): string {
@@ -11,9 +11,8 @@ function modelChip(agent: AgentEl): string {
     : '<span class="chip warn">sin modelo</span>';
 }
 
-/** Serve/launcher mode: model becomes a catalog-backed select (server re-validates on apply). */
+/** Model becomes a catalog-backed select (server re-validates on apply). */
 function modelCell(agent: AgentEl): string {
-  if (isFileMode) { return modelChip(agent); }
   const options = catalogModels.map(model => model.id);
   if (agent.model && !options.includes(agent.model)) { options.push(agent.model); }
   if (options.length === 0) { return modelChip(agent); }

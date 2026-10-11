@@ -1,3 +1,3 @@
 @echo off
 cd /d "%~dp0"
-bun run serve
+bun agent.ts

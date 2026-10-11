@@ -2,7 +2,7 @@
 
 import type { ReqFrame, ResFrame } from './protocol.ts';
 import { decryptFrame, deriveKey, encryptFrame } from './crypto.ts';
-import { PAGES_URL, pairingUrl, RELAY_URL } from './pairing.ts';
+import { PAGES_URL, pairingUrl } from './pairing.ts';
 import { decodePayload, isPresence } from './protocol.ts';
 
 export type FetchHandler = (req: Request) => Response | Promise<Response>;
@@ -30,21 +30,7 @@ export interface RelayClient {
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30_000;
 
-/** `--online [ws…]` slice of argv to forward to the engine; flag absent → `[]`. */
-export function parseOnlineArgv(argv: readonly string[]): string[] {
-  const index = argv.indexOf('--online');
-  if (index === -1) { return []; }
-  const tokens = ['--online'];
-  const next = argv[index + 1];
-  if (next !== undefined && next.startsWith('ws')) { tokens.push(next); }
-  return tokens;
-}
-
-/** Effective relay URL when `--online` is present; `null` = flag absent (the relay must stay untouched). */
-export function parseOnlineFlag(argv: readonly string[]): string | null {
-  const tokens = parseOnlineArgv(argv);
-  return tokens.length === 0 ? null : (tokens[1] ?? RELAY_URL);
-}
+/** `--online [ws…]` parsing retired with the launcher — the agent owns the online path (spec 2026-10-11 §3.7). */
 
 /** 1s → 30s exponential backoff with ±25% jitter — jitter keeps many engines from reconnecting in lockstep after a relay restart. */
 function reconnectDelay(attempt: number): number {

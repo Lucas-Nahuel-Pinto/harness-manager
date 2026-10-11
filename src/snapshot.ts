@@ -1,7 +1,9 @@
 import type { HarnessSnapshot } from './types.ts';
-import raw from '../data/harness.json';
 
-/** Empty shell for online builds: `dist-online/` must contain ZERO embedded harness data. */
+/**
+ * Empty shell — the online bundle embeds ZERO harness data (spec 2026-10-11 §3.6):
+ * the store fills from `/api/snapshot` over the relay once a root is picked.
+ */
 const EMPTY_SNAPSHOT: HarnessSnapshot = {
   schemaVersion: 1,
   meta: { root: '', scannedAt: '', toolVersion: '', manifest: false, warnings: [] },
@@ -20,16 +22,8 @@ const EMPTY_SNAPSHOT: HarnessSnapshot = {
   catalog: { models: [] },
 };
 
-// `__HM_ONLINE__` is a Vite build-time define; typeof-guarded so Bun tests (where it is
-// undefined) keep embedding the real snapshot. Online UI shows "Esperando motor…" until the
-// engine's snapshot arrives over the relay.
-const embedded: HarnessSnapshot
-  = typeof __HM_ONLINE__ !== 'undefined' && __HM_ONLINE__
-    ? EMPTY_SNAPSHOT
-    : raw as HarnessSnapshot;
-
-/** Live snapshot source: starts as the embedded (build-time) copy, replaced by /api/snapshot in serve mode. */
-let current = embedded;
+/** Live snapshot source: starts as the empty shell, replaced by /api/snapshot responses. */
+let current = EMPTY_SNAPSHOT;
 
 export function getSnapshot(): HarnessSnapshot {
   return current;

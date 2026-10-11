@@ -1,12 +1,9 @@
 import type { ApiBody } from '../actions/types.ts';
-import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { dispatchAction } from '../actions/index.ts';
 import { runScript } from '../actions/script-run.ts';
 import { scanHarness } from '../scan/index.ts';
 import { corsPreflight, withCors } from './cors.ts';
-
-const DIST_INDEX = resolve(import.meta.dir, '..', '..', 'dist', 'index.html');
 
 function json(status: number, body: ApiBody): Response {
   return new Response(JSON.stringify(body), {
@@ -15,18 +12,11 @@ function json(status: number, body: ApiBody): Response {
   });
 }
 
-/** Inject serve-mode flags before `</head>` so the built UI knows it is NOT file:// mode. */
-export function injectServeFlags(html: string, rootAbs: string): string {
-  const rootJson = JSON.stringify(rootAbs).replace(/</g, '\\u003c');
-  const tag = `<script>window.__HM_SERVE__=true;window.__HM_ROOT__=${rootJson};</script>`;
-  if (html.includes('</head>')) { return html.replace('</head>', `${tag}</head>`); }
-  return `${tag}${html}`;
-}
-
 /**
  * Pure request handler (no sockets) — tests call it with `new Request('http://127.0.0.1/...')`.
- * Routes: GET /api/snapshot · POST /api/action · POST /api/run · OPTIONS → 204 · else → dist.
- * CORS: the launcher-origin page calls this engine cross-port, so every response carries ACAO.
+ * API-only since spec 2026-10-11: routes are GET /api/snapshot · POST /api/action ·
+ * POST /api/run · OPTIONS → 204 · anything else → 404 (the UI lives on the hosted site).
+ * CORS: kept for the local dev proxy (`bun run dev` → engine on another port).
  */
 export function createApp(rootInput: string): (req: Request) => Response | Promise<Response> {
   const rootAbs = resolve(rootInput);
@@ -71,16 +61,5 @@ async function route(req: Request, rootAbs: string): Promise<Response> {
     return json(status, body);
   }
 
-  if (pathname.startsWith('/api/')) {
-    return json(404, { ok: false, error: 'not_found', detail: `${req.method} ${pathname}` });
-  }
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    return json(405, { ok: false, error: 'method_not_allowed', detail: req.method });
-  }
-
-  if (!existsSync(DIST_INDEX)) {
-    return json(500, { ok: false, error: 'build_missing', detail: 'Ejecutá `bun run build` antes de servir (falta dist/index.html)' });
-  }
-  const html = injectServeFlags(readFileSync(DIST_INDEX, 'utf8'), rootAbs);
-  return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+  return json(404, { ok: false, error: 'not_found', detail: `${req.method} ${pathname}` });
 }

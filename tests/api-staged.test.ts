@@ -3,7 +3,7 @@ import { cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { createApp, injectServeFlags } from '../src/server/app.ts';
+import { createApp } from '../src/server/app.ts';
 
 const FIXTURE = join(import.meta.dir, 'fixtures', 'mini-harness');
 const FIXTURE_MCP = join(FIXTURE, 'opencode.jsonc');
@@ -209,23 +209,6 @@ describe('POST /api/run', () => {
     expect(parsed.exitCode).toBe(3);
     expect(typeof parsed.output).toBe('string');
   }, 20_000);
-});
-
-describe('serve-mode injection', () => {
-  test('injects flags before </head>', () => {
-    const html = '<html><head><title>x</title></head><body></body></html>';
-    const out = injectServeFlags(html, 'C:\\some\\"root');
-    expect(out).toContain('<script>window.__HM_SERVE__=true;');
-    expect(out).toContain('window.__HM_ROOT__=');
-    expect(out.indexOf('</script>')).toBeLessThan(out.indexOf('</head>'));
-    expect(out).toContain('C:\\\\some\\\\\\"root'); // JSON-escaped, < escaped
-  });
-
-  test('works even without a head tag', () => {
-    const out = injectServeFlags('<body></body>', '/root');
-    expect(out.startsWith('<script>')).toBe(true);
-    expect(out).toContain('__HM_ROOT__="/root"');
-  });
 });
 
 describe('fixture safety', () => {
