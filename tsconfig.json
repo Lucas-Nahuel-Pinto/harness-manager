@@ -26,6 +26,7 @@
     "relay/**/*.ts",
     "server.ts",
     "launcher.ts",
+    "agent.ts",
     "electrobun.config.ts",
     "vite.config.ts",
     "eslint.config.js"

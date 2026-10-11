@@ -13,7 +13,7 @@ import type { BrowseResult, DesktopRPCSchema, DesktopSnapshot } from './rpc-sche
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { openInOs } from '../actions/open.ts';
-import { pickFolder } from './browse.ts';
+import { pickFolder } from '../agent/browse.ts';
 import {
   createController,
   createKillEngine,

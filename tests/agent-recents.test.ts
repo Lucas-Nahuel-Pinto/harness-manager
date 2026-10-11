@@ -1,9 +1,9 @@
-import type { RecentEntry } from '../src/desktop/recents.ts';
+import type { RecentEntry } from '../src/agent/recents.ts';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'bun:test';
-import { addRecent, loadRecents, RECENTS_CAP, saveRecents } from '../src/desktop/recents.ts';
+import { addRecent, loadRecents, RECENTS_CAP, saveRecents } from '../src/agent/recents.ts';
 
 function tempDir(): string {
   return mkdtempSync(join(tmpdir(), 'hm-recents-'));

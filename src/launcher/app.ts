@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
-import { pickFolder as defaultPickFolder } from '../desktop/browse.ts';
+import { pickFolder as defaultPickFolder } from '../agent/browse.ts';
+import { addRecent, loadRecents, saveRecents } from '../agent/recents.ts';
 import { createOnlineLineFilter } from '../desktop/online-lines.ts';
-import { addRecent, loadRecents, saveRecents } from '../desktop/recents.ts';
 import { corsPreflight, withCors } from '../server/cors.ts';
 import { pickerHtml } from './picker.ts';
 

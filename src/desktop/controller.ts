@@ -8,11 +8,11 @@
  * process and under `bun test`.
  */
 
-import type { RecentEntry } from './recents.ts';
+import type { RecentEntry } from '../agent/recents.ts';
 import { existsSync, statSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
+import { addRecent, loadRecents, saveRecents } from '../agent/recents.ts';
 import { onlineUrlFromLine } from './online-lines.ts';
-import { addRecent, loadRecents, saveRecents } from './recents.ts';
 
 /** A spawned (or fake) engine, as the controller needs it: lines, exit, kill. */
 export interface EngineHandle {

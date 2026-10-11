@@ -7,7 +7,7 @@
  * are set via `textContent`, so no path or server message can inject markup.
  */
 
-import type { RecentEntry } from '../desktop/recents.ts';
+import type { RecentEntry } from '../agent/recents.ts';
 import { escapeHtml } from '../html.ts';
 
 /** Distinctive marker — tests assert the picker (not the dashboard) is being served. */

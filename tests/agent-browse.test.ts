@@ -1,6 +1,6 @@
-import type { BrowseSpawnResult, PickFolderOptions } from '../src/desktop/browse.ts';
+import type { BrowseSpawnResult, PickFolderOptions } from '../src/agent/browse.ts';
 import { describe, expect, test } from 'bun:test';
-import { browseCommand, pickFolder } from '../src/desktop/browse.ts';
+import { browseCommand, pickFolder } from '../src/agent/browse.ts';
 
 /** Fake spawn: scripted queue in call order; an `Error` entry rejects (binary missing). */
 function fakeSpawn(script: Array<BrowseSpawnResult | Error>) {

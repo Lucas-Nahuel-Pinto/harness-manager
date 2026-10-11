@@ -8,9 +8,9 @@
  */
 
 import type { ElectrobunRPCSchema } from 'electrobun/view';
-import type { BrowseErrorCode } from './browse.ts';
+import type { BrowseErrorCode } from '../agent/browse.ts';
+import type { RecentEntry } from '../agent/recents.ts';
 import type { ControllerState, PickResult } from './controller.ts';
-import type { RecentEntry } from './recents.ts';
 
 export type DesktopPickResult = PickResult;
 
