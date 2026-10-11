@@ -1,6 +1,6 @@
 # harness-manager
 
-A JTM-style harness snapshot manager: a panoramic dashboard to **visualize and manage the elements of any agent harness** (skills, commands, agents, MCPs, env, scripts, registries), following the same proven pattern as [`jira-traceability-manager`](https://github.com/Lucas-Nahuel-Pinto/jira-traceability-manager) — snapshot pipeline + self-contained single-file app — but pointed at a harness directory instead of Jira, and with a local server layer that enables real management actions (toggle MCPs, run scripts, assign models), always through diff + confirmation.
+A JTM-style harness snapshot manager: a panoramic dashboard to **visualize and manage the elements of any agent harness** (skills, commands, agents, MCPs, env, scripts, registries), following the same proven pattern as [`jira-traceability-manager`](https://github.com/Lucas-Nahuel-Pinto/jira-traceability-manager) — snapshot pipeline + self-contained single-file app — but pointed at a harness directory instead of Jira, with **100% online UI**: the dashboard and the harness picker live on the hosted website, and a headless local agent executes the real management actions (toggle MCPs, run scripts, assign models), always through diff + confirmation.
 
 ## Install
 
@@ -10,74 +10,49 @@ bun install
 
 No `.env` needed: the scanner only reads files inside the target harness root. Env vars are reported by **presence** (`.env.example` vs `.env`) — **values are never read into the snapshot**.
 
+## Quickstart (online-only)
+
+1. Open the hosted app: <https://harness-manager.harness-manager.workers.dev>
+2. Copy the shown command: `bun agent.ts <CODE>` and run it **on the PC where your harness lives** (needs Bun; the repo is the agent).
+3. The website shows the harness picker (recents · **Elegir carpeta…** native dialog · manual absolute path) — pick your root and the dashboard loads. Stop the agent with Ctrl+C.
+
+`start-harness-manager.bat` / `.sh` run `bun agent.ts` with no code: the agent generates its own room and prints the pairing URL to open.
+
 ## Commands
 
 | Command | Effect |
 | --- | --- |
-| `bun run dev` | Vite dev server (HMR, source mode) |
-| `bun run pull` | Scan harness root → `data/harness.json` (ajv-validated, atomic write, fail-safe) |
-| `bun run build` | Embed snapshot → `dist/index.html` (read-only, double-click) |
-| `bun run serve` | Build + **launcher** on `127.0.0.1:7397` (UI with Iniciar/Detener buttons for the engine) |
-| `bun run engine` | Run only the API engine (`server.ts`, dynamic port, own copy of the UI) |
+| `bun run agent [code] [--relay ws…]` | Headless agent: joins the relay, serves the web picker routes + the bound dashboard. No code → generates one and prints the pairing URL |
+| `bun run build:online` | UI build for the hosted origin → `dist-online/` (no embedded snapshot, "esperando motor" shell) |
+| `bun run pull` | Scan harness root → `data/harness.json` (ajv-validated, atomic write, fail-safe) — diagnostic CLI |
+| `bun run engine` | API-only loopback diagnostic (`server.ts`, dynamic port, NO UI) — local dev/testing without the relay |
+| `bun run dev` | Vite dev server; `/api` proxied to the engine at `127.0.0.1:7399` (start `bun run engine --port 7399` first) |
 | `bun test` | Test suite |
 | `bun run types:check` | TypeScript strict check (`tsc --noEmit`) |
 | `bun run lint` / `bun run lint:fix` | ESLint (`@antfu/eslint-config`) |
 | `bun run format:check` / `bun run format:fix` | Prettier |
 | `bun run repo:check` | Full gate: `format:check` → `lint` → `types:check` → `test` |
 
-Scan root resolution: `--root <path>` flag → `HARNESS_ROOT` env var → current working directory (for `pull` / `build` / engine CLI). Exception: `bun run serve` without either opens the launcher **root picker** instead of defaulting to cwd — see [Desktop entry](#desktop-entry). An optional `harness.json` in the target root declares non-standard locations (skills globs, models config); auto-detection covers the well-known paths out of the box.
+Scan root resolution: `--root <path>` flag → `HARNESS_ROOT` env var → current working directory (for `pull` / engine CLI). An optional `harness.json` in the target root declares non-standard locations (skills globs, models config); auto-detection covers the well-known paths out of the box.
 
-## Server control
+## Local side: headless agent
 
-`bun run serve` now starts a **launcher**: it serves the built UI forever on `http://127.0.0.1:7397` (loopback only) and owns the engine process. The header shows a status dot (verde/ámbar/rojo) plus **Iniciar servidor / Detener servidor**:
+The agent **is** the engine (one process, no window, no local port): it joins the relay immediately and picking a root on the website binds the dashboard handler in-process. The local footprint is exactly this terminal process.
 
-- **Iniciar** spawns `bun server.ts --root <root> --port 0` (dynamic port), waits until it answers, stores the engine URL, and re-fetches the snapshot in place — no page reload. All actions (MCP toggle, script run, model assign, open, Re-scan) enable.
-- **Detener** kills the engine (graceful, 5s escalation) and **the page stays alive** on the last snapshot — actions disable with a "Servidor detenido" hint until you start again.
-- The engine keeps its own copy of the UI, so `bun run engine` (direct mode) works unchanged: no start/stop buttons, stop with Ctrl+C.
-- The UI polls `GET /api/status` every 3s, so an engine crash flips the badge and disables actions too.
-
-**file:// fallback**: the static build's "Iniciar servidor" button probes `127.0.0.1:7397`. A live launcher is offered as "Abrir en el launcher"; otherwise a modal hands over the copyable `bun run serve --root …` command (a browser cannot spawn processes).
-
-| Env / flag | Effect |
-| --- | --- |
-| `--port <n>` / `HM_LAUNCHER_PORT` | Launcher port (default `7397`) |
-| `HM_NO_OPEN=1` | Don't auto-open the browser on launcher start |
-| `--root <path>` | Harness root (launcher + engine). Omitted in `serve`: picker page instead of cwd default. Engine CLI default: cwd |
-| `--port <n>` / `HM_PORT` | Engine port when running `bun run engine` directly (default `0` = random) |
-
-### Desktop entry
-
-Double-click the launcher without typing a command: `start-harness-manager.bat` (Windows) or `start-harness-manager.sh` (POSIX — `chmod +x start-harness-manager.sh` once) starts `bun run serve` with no root, so the browser opens a **root picker**:
-
-- **Recents** — last 10 harness roots (MRU, `data/recents.json`), one click to start.
-- **Examinar…** — native OS folder dialog opened by the launcher (PowerShell dialog on Windows, `osascript` on macOS, `zenity`/`kdialog` on Linux). If no dialog tool exists on Linux, a toast points you to the manual input.
-- **Manual input** — type or paste any absolute path (universal fallback on every OS).
-
-After the pick, the engine spawns with that root (forwarding `--online` args if present) and the page becomes the normal dashboard. No harness switching while running — restart the launcher to change root. To skip the picker entirely, pass `--root` / `HARNESS_ROOT` as before.
-
-To double-click without a console window on Windows, point a shortcut at:
-
-```
-wscript.exe //B //Nologo "<path>\hide-and-run.vbs"
-```
-
-with a `hide-and-run.vbs` you create yourself (not committed):
-
-```vbs
-CreateObject("Wscript.Shell").Run """C:\path\to\harness-manager\start-harness-manager.bat""", 0, False
-```
-
-On macOS, Finder users can duplicate `start-harness-manager.sh` and rename it to `start-harness-manager.command` (or add an Alias to the Dock); on Linux, add a `.desktop` launcher whose `Exec` points at the `.sh`.
+- **Picker over the relay** — the website drives `/api/agent/{status,recents,browse,root}`: recents (MRU 10, `data/recents.json`), the native OS folder dialog (PowerShell on Windows, `osascript` on macOS, `zenity`/`kdialog` on Linux; without a dialog tool the site falls back to manual path input), and manual absolute-path entry with validation.
+- **Switching harness** — re-pick a root from the website: the agent rebinds in place, no restart.
+- **Stop** — Ctrl+C on the agent. Closing the browser never kills anything; the agent keeps its room until it exits.
+- **`--relay ws://127.0.0.1:8788`** (with `bun run relay:dev`) runs the whole flow against a local relay without touching the deployed one.
 
 ## Model catalog
 
-Harness-manager owns the model-catalog fetch — the harness only reads the file (offline-graceful: missing or stale → model-dependent features skip, nothing crashes). On every rescan, if the harness declares interest (manifest `models`, an existing `.models.catalog.json`, or a `harness-config` script) and the catalog is missing or older than 24h, the engine fetches it natively (no subprocess), writes it atomically, and only then scans. On total fetch failure the old file stays untouched and the snapshot carries a refresh warning.
+Harness-manager owns the model-catalog fetch — the harness only reads the file (offline-graceful: missing or stale → model-dependent features skip, nothing crashes). On every rescan, if the harness declares interest (manifest `models`, an existing `.models.catalog.json`, or a `harness-config` script) and the catalog is missing or older than 24h, harness-manager refreshes it natively (no subprocess), writes it atomically, and only then scans. On total fetch failure the old file stays untouched and the snapshot carries a refresh warning.
 
 Sources: the public OpenCode Zen endpoints plus `models.dev` metadata (deprecated models filtered). Provider endpoints (Google / Anthropic / OpenAI / DeepSeek / Kimi) are added only when their key exists in harness-manager's own `process.env` — keys are used transiently in the request and never persisted, displayed, or read from harness `.env` files. `MODELS_CATALOG_URLS` (comma-separated) overrides the source list; `MODELS_CACHE_TTL` (seconds) overrides the staleness TTL.
 
 ## Online mode (web)
 
-Open the full dashboard from **any device on any network** while every harness file and credential stays on the operator's machine. A hosted static UI (Cloudflare Workers static assets) talks to the local engine through an end-to-end-encrypted relay (Cloudflare Worker + Durable Object). The browser is a remote control, not a file store: the relay only forwards opaque AES-GCM frames and never sees the session code, the key, or any harness data.
+The hosted UI **is** the product: the dashboard and the harness picker live on Cloudflare Workers static assets and talk to the local agent through an end-to-end-encrypted relay (Cloudflare Worker + Durable Object). The browser is a remote control, not a file store: the relay only forwards opaque AES-GCM frames and never sees the session code, the key, or any harness data. Internet is a hard requirement — there is no local UI.
 
 ### Security model
 
@@ -88,13 +63,12 @@ Open the full dashboard from **any device on any network** while every harness f
 | Join control `{room, role}` + presence (roles/counts only, cleartext metadata) | The snapshot outside the encrypted channel |
 | | Source-form absolute paths outside the encrypted channel |
 
-The engine always binds `127.0.0.1` and only makes **outbound** connections to the relay — no inbound ports, no firewall changes. The session code is regenerated on every engine start (new room); stale rooms expire after 24h idle.
+The agent always binds outbound-only connections to the relay — no inbound ports, no firewall changes. The session code is 128-bit CSPRNG; rooms expire after 24h idle.
 
 ### Commands
 
 | Command | Effect |
 | --- | --- |
-| `bun run online` | Online build + engine with `--online`; prints `Online: <PAGES_URL>/#c=<CODE>` next to the local URL |
 | `bun run build:online` | UI build for the hosted origin → `dist-online/` (no embedded snapshot, empty "esperando motor" state) |
 | `bun run deploy:ui` | `build:online` + `wrangler deploy` (root `wrangler.jsonc` serves `dist-online/`) |
 | `bun run relay:dev` | Local relay on `ws://127.0.0.1:8788` — same routing logic as the deployed Worker |
@@ -109,15 +83,14 @@ bunx wrangler deploy -c relay/wrangler.toml        # relay Worker + Durable Obje
 bun run deploy:ui                                  # build:online + wrangler deploy → hosted UI
 ```
 
-Re-deploying an update repeats `deploy:ui` (and the relay command only when `relay/` changed). The Worker holds no secrets and no harness data; changing a URL is a normal commit + redeploy. Gotcha: if wrangler prints `Using redirected Wrangler configuration: dist\wrangler.json`, delete `.wrangler/deploy/` first — it is a stale redirect from project creation that would redeploy the wrong (local, data-embedded) build.
+Re-deploying an update repeats `deploy:ui` (and the relay command only when `relay/` changed). The Worker holds no secrets and no harness data; changing a URL is a normal commit + redeploy. Gotcha: if wrangler prints `Using redirected Wrangler configuration: dist\wrangler.json`, delete `.wrangler/deploy/` first — it is a stale redirect from project creation that would redeploy the wrong output.
 
-### Pairing flow
+### Launcher flow (site-generated code)
 
-1. `bun run online --root <harness>` — the engine prints `Online: https://harness-manager.harness-manager.workers.dev/#c=<CODE>` next to the local URL once the relay connection is up.
-2. Open that URL from any device (the code lives in the fragment, so it is never transmitted). A hosted origin without `#c=` shows the pairing screen — paste the full pairing URL or the bare code.
-3. The UI derives the room + key from the code identically to the engine, joins the relay, and streams the snapshot end-to-end-encrypted. Stop the engine → the UI shows the offline banner; restart → new code, new room (the old room dies with the old engine).
-
-**Local mode is unchanged**: opening the UI via `file://` or `127.0.0.1` (no `#c=`) talks to the local engine over plain fetch, exactly as before.
+1. Open the hosted origin **without** `#c=` → the **launcher screen** generates a session code, keeps it in the URL fragment, and shows the one-line command `bun agent.ts <CODE>` (copy button) while waiting for the agent to join the room.
+2. Run the command on the PC where the harness lives. The agent derives room + key from the same code, joins the relay as the engine, and the site advances to the **harness picker** (recents · native dialog · manual path).
+3. Pick a root → the dashboard boots over the same encrypted channel. Re-picking a root rebinds the agent in place; Ctrl+C on the agent shows the offline banner.
+4. **Paste fallback**: if the agent was started first (`bun agent.ts` with no code — it prints `Online: <PAGES_URL>/#c=<CODE>`), paste that URL/code into the launcher screen to join its room instead.
 
 ## The 6 tabs
 
@@ -141,11 +114,11 @@ compute diff → UI shows unified diff → user confirms → atomic write (temp 
 ```
 
 - **Server-enforced staging**: `POST /api/action` returns `{ diff }` first; the server only applies when the same request is re-sent with `confirm: true`. Not just a UI courtesy.
-- **Loopback only**: the launcher (7397) and the engine (dynamic port) both bind `127.0.0.1`. Never exposed on the network.
+- **Outbound-only local side**: the agent opens a single outbound connection to the relay; the diagnostic engine binds `127.0.0.1`. No inbound ports, no firewall changes.
 - **Path guard**: every resolved write target must stay inside the harness root — path traversal is rejected and tested.
 - **Script-name whitelist**: the runner only accepts script names declared in the target harness `package.json`, runs with `cwd = root`, and captures output. The UI never sends arbitrary command strings.
 - **`.env` untouchable**: actions only touch MCP config, agent frontmatter / session model config, and script execution. `.env` **values are never read** — only names and presence enter the snapshot, so a shared snapshot cannot leak secrets.
-- **Read-only build**: `dist/index.html` (double-click / file://) renders with action buttons disabled and the "modo solo lectura" badge; the header's "Iniciar servidor" button probes a running launcher or hands over the command.
+- **No local UI**: there is nothing local to harden — the bundle embeds no harness data, and the API-only diagnostic engine never serves HTML.
 - **Structured errors**: the API returns `{ error, detail }`, the UI toasts, and partial writes never happen.
 
 ### Known limitation — MCP toggle vs Claude Code
@@ -155,9 +128,8 @@ Toggling an MCP writes `"enabled": false` (opencode semantics) into `opencode.js
 ## Development
 
 - `window.__hmGraph` — test hook exposed by the Grafo tab: `{ nodes, first() }` where `nodes` is the visible node count of the last update and `first()` returns the first visible node id + canvas-relative position (drives synthetic click tests).
-- `window.__HM_SERVE__` / `window.__HM_ROOT__` — injected by the engine's serve route so the UI knows it is in direct-serve mode (actions enabled) and which root it points at.
-- `window.__HM_LAUNCHER__` — injected by the launcher's `/` route; the UI then gets its engine URL from `GET /api/status` instead of assuming same-origin.
-- `data/harness.json` and `dist/index.html` are **generated** — never hand-edit (the build embeds the snapshot).
+- Local dev loop: `bun run engine --port 7399` + `bun run dev` — vite proxies `/api` to the engine; test the full online flow locally with `bun run relay:dev` + `bun run dev` opening `http://localhost:5173/?relay=ws://127.0.0.1:8788`.
+- `data/harness.json` is **generated** by `bun run pull` (diagnostic output — no embedded consumer anymore); never hand-edit.
 - Snapshot schema: `harness.schema.json` (`schemaVersion: 1`, validated by ajv on every pull).
 
 ## Screenshots
@@ -172,6 +144,7 @@ _TODO — capture into `docs/screenshots/` before publishing:_
 
 - Design: `docs/superpowers/specs/2026-10-07-harness-manager-design.md`
 - Plan: `docs/plans/2026-10-07-implementation-plan.md`
+- Web picker + headless agent (current architecture): `docs/superpowers/specs/2026-10-11-web-picker-agent-design.md`
 - Acceptance checklist: `docs/acceptance.md`
 
 ## License

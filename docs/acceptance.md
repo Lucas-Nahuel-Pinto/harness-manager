@@ -6,19 +6,23 @@
 ## How to run
 
 ```bash
-# Harness A — QA boilerplate
-bun run pull --root "C:\Agentic-Quality-Engineer\Projects\bunkai\bunkai-qa-engineering-lpinto"
-bun run serve --root "C:\Agentic-Quality-Engineer\Projects\bunkai\bunkai-qa-engineering-lpinto"
+# 1 — open the hosted app (site-generated flow):
+#     https://harness-manager.harness-manager.workers.dev
+# 2 — copy the shown command `bun agent.ts <CODE>` and run it on the PC that holds the harness
+# 3 — pick the root ON THE WEBSITE (recents / native dialog / manual path)
+
+# Harness A — QA boilerplate (root picked on the site)
+C:\Agentic-Quality-Engineer\Projects\bunkai\bunkai-qa-engineering-lpinto
 
 # Harness B — agentic-pm-harness
-bun run pull --root "C:\Agentic-Quality-Engineer\Projects\jira-traceability\agentic-pm-harness"
-bun run serve --root "C:\Agentic-Quality-Engineer\Projects\jira-traceability\agentic-pm-harness"
+C:\Agentic-Quality-Engineer\Projects\jira-traceability\agentic-pm-harness
 
-# Direct engine (no launcher, no start/stop buttons — Ctrl+C to stop)
-bun run engine --root "C:\path\to\harness"
+# Agent-generated flow (double-click / terminal): prints the pairing URL to open
+bun agent.ts
+
+# Local diagnostic without relay (API only, no UI):
+bun run engine --root "C:\path\to\harness" --port 7399
 ```
-
-Also verify the read-only build: double-click `dist/index.html` (file://) — action buttons must be disabled with the "modo solo lectura" hint.
 
 ---
 
@@ -55,9 +59,8 @@ Root: `C:\Agentic-Quality-Engineer\Projects\bunkai\bunkai-qa-engineering-lpinto`
 | A11 | Scripts + Registros | 68 scripts listed with commands; 3 registries with status/staleness | [ ] | |
 | A12 | Grafo | Graph renders from the snapshot; filters narrow without orphaning context; selection illuminates edges; revisiting same filters is instant (cache) | [ ] | |
 | A13 | Shell | Left filter panel and right detail panel collapse/expand (`«`/`»`); search (`/`) filters Skills tab; warning badge opens warnings | [ ] | |
-| A14 | Read-only | `dist/index.html` opened via file:// shows "modo solo lectura", action buttons + Re-scan disabled | [ ] | |
 
-### Action walkthroughs (serve mode)
+### Action walkthroughs (online mode)
 
 | # | Action | Expected observation | Done | Notes |
 | --- | --- | --- | --- | --- |
@@ -100,7 +103,7 @@ Root: `C:\Agentic-Quality-Engineer\Projects\jira-traceability\agentic-pm-harness
 | B8 | Grafo | Graph renders the smaller element set; filters + selection work | [ ] | |
 | B9 | Shell | Collapse, search and warning badge behave as in Harness A | [ ] | |
 
-### Action walkthroughs (serve mode)
+### Action walkthroughs (online mode)
 
 | # | Action | Expected observation | Done | Notes |
 | --- | --- | --- | --- | --- |
@@ -111,19 +114,19 @@ Root: `C:\Agentic-Quality-Engineer\Projects\jira-traceability\agentic-pm-harness
 
 ---
 
-## Launcher control (Phase 5.5)
+## Local side — headless agent
 
-Applies to whichever harness was launched with `bun run serve` (launcher on `127.0.0.1:7397`).
+Applies to the agent flow (web picker driving `bun agent.ts`).
 
 | # | Check | Expected observation | Done | Notes |
 | --- | --- | --- | --- | --- |
-| L1 | Launcher entry | `bun run serve --root <root>` opens `http://127.0.0.1:7397/`; header shows the status dot + **Detener servidor** (engine already running after the build) | [ ] | |
-| L2 | Stop keeps page alive | **Detener servidor** → toast "servidor detenido — la vista queda en solo lectura"; the page stays on the last snapshot; dot turns red; actions (toggle/run/model/Re-scan) disable with the hint | [ ] | |
-| L3 | Start re-enables actions | **Iniciar servidor** → toast "servidor iniciado" + fresh snapshot in place (no reload); dot green; actions work again (e.g. toggle an MCP end-to-end) | [ ] | |
-| L4 | Restart cycle | L2 → L3 works at least twice without reloading the page; `GET /api/status` always matches the dot | [ ] | |
-| L5 | file:// fallback | Open `dist/index.html` via file:// → **Iniciar servidor** probes the launcher: reachable → "Abrir en el launcher" offer; not reachable → modal with copyable `bun run serve --root …` command | [ ] | |
-| L6 | Direct engine unchanged | `bun run engine --root <root>` → own UI on a dynamic port with NO start/stop buttons; badge "modo serve · escritura"; Ctrl+C stops it | [ ] | |
-| L7 | No orphans | After stopping the engine from the UI, `tasklist` shows no leftover `bun server.ts` PID for that root | [ ] | |
+| L1 | Agent-generated flow | `bun agent.ts` (no code) prints `Online: https://harness-manager.harness-manager.workers.dev/#c=<CODE>` and the "agente en pie" line; Ctrl+C stops it | [ ] | |
+| L2 | Paste fallback | Opening the printed URL (or pasting the code into the launcher screen) joins the room and shows the picker | [ ] | |
+| L3 | No local UI | While the agent runs, nothing listens on any local port (only outbound WS to the relay); no window opens | [ ] | |
+| L4 | Invalid code | `bun agent.ts NOT-A-CODE` exits 1 with the usage message | [ ] | |
+| L5 | Offline relay | Relay unreachable → the agent logs the outage once and keeps retrying; site shows "esperando agente" | [ ] | |
+| L6 | Diagnostic engine | `bun run engine --port 7399` serves `/api/snapshot` (200) and 404s every non-API path (no HTML) | [ ] | |
+| L7 | No orphans | Ctrl+C the agent → its room goes silent (offline banner in the site); no leftover `bun` processes for that root | [ ] | |
 
 ---
 
@@ -131,10 +134,10 @@ Applies to whichever harness was launched with `bun run serve` (launcher on `127
 
 | # | Check | Expected observation | Done | Notes |
 | --- | --- | --- | --- | --- |
-| C1 | Quality gates | `bun run repo:check` green (format → lint → types → 85 tests) | [ ] | |
-| C2 | Build | `bun run build` green; `dist/index.html` single-file, double-clickable | [ ] | |
+| C1 | Quality gates | `bun run repo:check` green (format → lint → types → test) | [ ] | |
+| C2 | Online build | `bun run build:online` green; `dist-online/` single-file, embeds ZERO harness data | [ ] | |
 | C3 | Fail-safe | A failing scan does not overwrite `data/harness.json` (covered by `pull-failsafe` tests) | [ ] | |
-| C4 | Loopback | Launcher (7397) and engine (dynamic port) listen on `127.0.0.1` only (printed URLs) | [ ] | |
+| C4 | No inbound ports | The agent only opens an outbound WS to the relay; the diagnostic engine binds `127.0.0.1` only | [ ] | |
 | C5 | No env values | No `.env` value appears in snapshot, UI, diff, or test output | [ ] | |
 | C6 | MCP limitation | README documents that Claude Code ignores `enabled` in `.mcp.json` (toggle is OpenCode-effective) | [ ] | |
 | C7 | Sanitization | `git grep` for user-specific absolute paths in tracked files → only intentional/functional hits remain | [ ] | |
@@ -142,17 +145,21 @@ Applies to whichever harness was launched with `bun run serve` (launcher on `127
 
 ---
 
-## Online mode (Phase 4)
+## Online mode (launcher screen + web picker)
 
-Applies after the Cloudflare deploy (hosted UI on Workers static assets + relay Worker). **L1–L7 (launcher/local checklist) are unchanged by online mode** and remain the local-mode sign-off.
+Applies after the Cloudflare deploy (hosted UI on Workers static assets + relay Worker). See spec `2026-10-11-web-picker-agent-design.md`.
 
 | # | Check | Expected observation | Done | Notes |
 | --- | --- | --- | --- | --- |
-| L8 | Pairing URL | `bun run online --root <root>` prints `Online: https://harness-manager.harness-manager.workers.dev/#c=<CODE>` next to the local URL (relay connected) | [ ] | |
-| L9 | Pairing screen | Opening the hosted origin WITHOUT `#c=` shows the pairing screen; pasting the full pairing URL (or the bare code) joins the room | [ ] | |
-| L10 | Second network | A phone on a different network opens the pairing URL → snapshot renders over the relay | [ ] | |
-| L11 | Staged action | ONE staged action over the relay (e.g. MCP toggle or Re-scan) → diff shown → confirm → applied → re-scan reflects it | [ ] | |
-| L12 | Offline + reconnect | Stop the engine → UI shows the offline banner; restart the engine → new pairing URL printed, pasting it reconnects (old room is dead) | [ ] | |
+| L8 | Launcher screen | Hosted origin without `#c=` shows the launcher: `bun agent.ts <CODE>` command + copy button + "esperando agente" status | [ ] | |
+| L9 | Site-generated pairing | Running the shown command on the PC → the site advances to the picker WITHOUT reloading (same fragment/room) | [ ] | |
+| L10 | Web picker | Picker shows recents (after the first pick) · **Elegir carpeta…** opens the native OS dialog on the AGENT's machine · manual absolute path works everywhere | [ ] | |
+| L11 | Pick → dashboard | Pick a valid root → dashboard renders over the relay with the snapshot of that root. Accented/`ñ` path works on Windows | [ ] | |
+| L12 | Validation | Relative path / missing path / a plain file → inline 400 detail in the picker, still on the picker, recents untouched. Linux without zenity/kdialog → browse errors with hint, manual input still works | [ ] | |
+| L13 | Second network | A phone on a different network opens the same `#c=` URL → picker/dashboard over the relay | [ ] | |
+| L14 | Staged action | ONE staged action over the relay (MCP toggle or Re-scan) → diff shown → confirm → applied → re-scan reflects it | [ ] | |
+| L15 | Rebind | While running, pick a different root from the site → dashboard switches to the new root without restarting the agent | [ ] | |
+| L16 | Offline + reconnect | Ctrl+C the agent → offline banner; rerun the same command → reconnects to the same room, state recovers | [ ] | |
 
 **Sign-off**
 
@@ -168,9 +175,9 @@ Applies after the catalog-ownership phase (fetch moved from the boilerplate into
 
 | # | Check | Expected observation | Done | Notes |
 | --- | --- | --- | --- | --- |
-| L13 | Stale refresh | Deleting or aging `.models.catalog.json` in the harness root + Re-scan → file rewritten atomically (`fetchedAt` updated, `sources` populated), registry card shows entry count, model-set validates against the refreshed list | [ ] | |
-| L14 | No-interest harness | A root without manifest `models`, without a catalog file and without a `harness-config` script is never written to (no `.models.catalog.json` appears after Re-scan) | [ ] | |
-| L15 | Degraded fetch | With sources unreachable, the old catalog stays intact, the snapshot carries a refresh warning, and the rescan still succeeds | [ ] | |
+| L17 | Stale refresh | Deleting or aging `.models.catalog.json` in the harness root + Re-scan → file rewritten atomically (`fetchedAt` updated, `sources` populated), registry card shows entry count, model-set validates against the refreshed list | [ ] | |
+| L18 | No-interest harness | A root without manifest `models`, without a catalog file and without a `harness-config` script is never written to (no `.models.catalog.json` appears after Re-scan) | [ ] | |
+| L19 | Degraded fetch | With sources unreachable, the old catalog stays intact, the snapshot carries a refresh warning, and the rescan still succeeds | [ ] | |
 
 **Sign-off**
 
@@ -180,19 +187,11 @@ Applies after the catalog-ownership phase (fetch moved from the boilerplate into
 
 ---
 
-## Launcher root picker
+## Desktop entry (double-click)
 
-Applies after the root-picker phase (`bun run serve` without `--root`/`HARNESS_ROOT`).
+Applies after the desktop-entry scripts (`start-harness-manager.bat` / `.sh` → `bun agent.ts` with no code).
 
 | # | Check | Expected observation | Done | Notes |
 | --- | --- | --- | --- | --- |
-| L16 | Desktop entry | Double-click `start-harness-manager.bat` (or run the `.sh`) → browser opens the picker page; recents list shown (empty on first run) | [ ] | |
-| L17 | Pick → dashboard | **Examinar…** opens the native folder dialog → select a valid harness root → engine spawns, page becomes the dashboard for that root. Accented/`ñ` path works on Windows | [ ] | |
-| L18 | Recents + validation | After L17, the root is the first recents entry and survives a launcher restart (MRU, cap 10). Relative path / missing path / a plain file → toast with the 400 message, still on the picker. Linux without zenity/kdialog → Examinar toasts and the manual input still works | [ ] | |
-| L19 | POSIX smoke | `start-harness-manager.sh` on Linux or macOS: picker loads, pick via manual input starts the engine (dialog path when zenity/kdialog present) | [ ] | |
-
-**Sign-off**
-
-| Role | Name | Date | Done |
-| --- | --- | --- | --- |
-| User | | | [ ] |
+| L20 | Windows | Double-click `start-harness-manager.bat` → terminal prints the pairing URL; opening it shows the picker; pick via recents/dialog/manual works | [ ] | |
+| L21 | POSIX | `start-harness-manager.sh` on Linux or macOS (`.command` rename or `.desktop` launcher): prints the URL, pick via manual input starts the flow (native dialog when zenity/kdialog present) | [ ] | |

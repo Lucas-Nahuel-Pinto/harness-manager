@@ -1,6 +1,6 @@
 # Web Picker + Headless Agent — Design
 
-**Date:** 2026-10-11 · **Status:** approved decisions, pre-implementation · **Scope:** harness-manager repo only
+**Date:** 2026-10-11 · **Status:** implemented (2026-10-11 — commits `363038c` agent · `9468e56` launcher screen · `7422223` removals) · **Scope:** harness-manager repo only
 **Supersedes:** `2026-10-10-desktop-app-online-only-design.md` (Electrobun desktop app — Fases 1-2 shipped, to be deleted)
 
 ## 1. Problem
@@ -45,9 +45,9 @@ SITIO WEB (todo el UI)                          TU PC (un solo proceso)
 | File | Change |
 | --- | --- |
 | `agent.ts` | NEW — entry: parse `code?` / `--relay ws…`; generate-or-use code; join relay as `engine` with agent handler; print pairing URL when it generated the code |
-| `src/agent/controller.ts` | NEW — pure lifecycle (injectable seams): state `picker`/`running`, `bindRoot` (validate → `createApp` → recents), recents load/save, handler routing (agent routes → delegate → `no_root` 404) |
+| `src/agent/controller.ts` | NEW — pure lifecycle (injectable seams): state `picker`/`running`, `bindRoot` (validate → `createApp` → recents), recents load/save, handler routing (agent routes → delegate → `no_root` 404) — the route codec lives here (`routes.ts` folded in during implementation) |
 | `src/agent/browse.ts`, `src/agent/recents.ts` | MOVED from `src/desktop/` (logic unchanged) |
-| `src/agent/routes.ts` | NEW — `/api/agent/{status,recents,browse,root}` request/response codec + JSON responses |
+| `src/agent/args.ts` | NEW — entry argv: optional positional code (or pairing URL) + `--relay ws…` override |
 | `src/desktop/**`, `electrobun.config.ts` | DELETED (Phases 1-2 of the superseded design) |
 | `src/launcher/**`, `launcher.ts` | DELETED (loopback launcher, port 7397 dies) |
 | `src/online/pairing.ts` | `generateCode()` reused browser-side (pure WebCrypto — verify no Node-only imports); no other change |
