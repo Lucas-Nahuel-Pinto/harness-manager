@@ -341,6 +341,30 @@ table.matrix { border-collapse: collapse; font-size: 12.5px; width: 100%; }
   font-size: 13px; font-weight: 600; cursor: pointer;
 }
 .pairing-connect:hover { filter: brightness(1.1); }
+
+/* ── Launcher web (spec 2026-10-11): comando de arranque + picker de harness ─ */
+.launcher-cmd {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 9px 11px;
+}
+.launcher-cmd code { flex: 1; font-family: var(--mono); font-size: 12.5px; color: var(--text); overflow-x: auto; white-space: nowrap; }
+.launcher-copy {
+  background: transparent; border: 1px solid var(--border); color: var(--muted);
+  border-radius: 5px; padding: 3px 9px; font-size: 11.5px; cursor: pointer; white-space: nowrap;
+}
+.launcher-copy:hover { color: var(--text); border-color: var(--accent); }
+.launcher-status { font-size: 12.5px; color: var(--muted); }
+.picker-recents { display: flex; flex-direction: column; gap: 5px; }
+.picker-recent {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 7px 11px; cursor: pointer; text-align: left;
+}
+.picker-recent:hover { border-color: var(--accent); }
+.picker-recent-path { font-family: var(--mono); font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.picker-recent-time { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.picker-row { display: flex; gap: 8px; }
 `;
 
 export function injectStyles(): void {

@@ -4,8 +4,8 @@ import type { EnvStatus, GraphKind, TabId } from './state.ts';
 import type { SkillTier } from './types.ts';
 import { escapeHtml, renderDetail } from './components/detail-panel.ts';
 import { agentHosts, graphKindLabels, mcpConfigFiles, meta, warningCount } from './model.ts';
+import { renderLauncherScreen } from './online/launcher-screen.ts';
 import { detectMode, relayOverride } from './online/mode.ts';
-import { renderPairingScreen } from './online/pairing-screen.ts';
 import { parseCodeFromHash, RELAY_URL } from './online/pairing.ts';
 import { WSTransport } from './online/transport.ts';
 import { refreshSnapshot } from './refresh.ts';
@@ -316,10 +316,11 @@ function startOnlineTransport(): void {
 }
 
 // Mode detection: local/file origins keep the historical fetch path (embedded build unchanged);
-// hosted origins need a valid #c= fragment — otherwise the pairing screen takes over.
+// hosted origins without a valid #c= fragment land on the launcher screen (site-generated code,
+// bootstrap command, web picker — spec 2026-10-11).
 const mode = detectMode(window.location.origin, window.location.hash, window.location.search);
 if (mode === 'online-unpaired') {
-  renderPairingScreen(() => { bootApp('online'); });
+  renderLauncherScreen(() => { bootApp('online'); });
 }
 else {
   bootApp(mode);
