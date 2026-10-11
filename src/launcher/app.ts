@@ -1,9 +1,10 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
+import { pickFolder as defaultPickFolder } from '../desktop/browse.ts';
+import { createOnlineLineFilter } from '../desktop/online-lines.ts';
+import { addRecent, loadRecents, saveRecents } from '../desktop/recents.ts';
 import { corsPreflight, withCors } from '../server/cors.ts';
-import { pickFolder as defaultPickFolder } from './browse.ts';
 import { pickerHtml } from './picker.ts';
-import { addRecent, loadRecents, saveRecents } from './recents.ts';
 
 /** A spawned (or fake) engine process. `ready` resolves with the engine base URL. */
 export interface EngineHandle {
@@ -80,21 +81,6 @@ export function injectLauncherFlags(html: string, rootAbs: string): string {
   const tag = `<script>window.__HM_LAUNCHER__=true;window.__HM_ROOT__=${rootJson};</script>`;
   if (html.includes('</head>')) { return html.replace('</head>', `${tag}</head>`); }
   return `${tag}${html}`;
-}
-
-/**
- * Buffered line filter over engine stdout: returns the complete `Online: …` lines found in the
- * chunk (partial lines carry over to the next one). The launcher drains the pipe silently, so
- * without this the pairing URL would never reach the user.
- */
-export function createOnlineLineFilter(): (chunk: string) => string[] {
-  let carry = '';
-  return (chunk: string) => {
-    carry += chunk;
-    const lines = carry.split(/\r?\n/);
-    carry = lines.pop() ?? '';
-    return lines.filter(line => line.startsWith('Online:'));
-  };
 }
 
 async function readUrlFromStdout(stream: ReadableStream<Uint8Array>, timeoutMs: number, onChunk?: (text: string) => void): Promise<string | null> {

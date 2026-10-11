@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'bun:test';
-import { createLauncher, createOnlineLineFilter, injectLauncherFlags } from '../src/launcher/app.ts';
+import { createLauncher, injectLauncherFlags } from '../src/launcher/app.ts';
 import { createApp } from '../src/server/app.ts';
 
 const FIXTURE = join(import.meta.dir, 'fixtures', 'mini-harness');
@@ -252,28 +252,6 @@ describe('injectLauncherFlags', () => {
   test('prepends when there is no head', () => {
     const html = injectLauncherFlags('<body>plain</body>', '/tmp/root');
     expect(html.startsWith('<script>window.__HM_LAUNCHER__')).toBe(true);
-  });
-});
-
-describe('createOnlineLineFilter (launcher echoes the pairing URL)', () => {
-  test('extracts complete Online: lines and passes other stdout through', () => {
-    const filter = createOnlineLineFilter();
-    expect(filter('Harness Manager sirviendo en http://127.0.0.1:41000\n')).toEqual([]);
-    expect(filter('Online: https://demo.pages.dev/#c=ABCDEFGHJKMNPQRSTVWXYZ2345\n'))
-      .toEqual(['Online: https://demo.pages.dev/#c=ABCDEFGHJKMNPQRSTVWXYZ2345']);
-  });
-
-  test('buffers a line split across chunks', () => {
-    const filter = createOnlineLineFilter();
-    expect(filter('Online: https://demo.pages.dev/#c=')).toEqual([]);
-    expect(filter('ABCD\n')).toEqual(['Online: https://demo.pages.dev/#c=ABCD']);
-  });
-
-  test('handles CRLF and multiple Online lines (reconnect re-prints)', () => {
-    const filter = createOnlineLineFilter();
-    expect(filter('x\r\nOnline: a\r\nOnline: b\r\n')).toEqual(['Online: a', 'Online: b']);
-    expect(filter('otra Online: no')).toEqual([]);
-    expect(filter('\n')).toEqual([]);
   });
 });
 

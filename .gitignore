@@ -8,6 +8,7 @@ Thumbs.db
 .idea/
 .vscode/
 dist/
+build/
 data/
 dist-online/
 .wrangler/
