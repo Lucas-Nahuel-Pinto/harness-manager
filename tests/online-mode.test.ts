@@ -79,6 +79,14 @@ describe('extractCodeFromInput (pairing screen)', () => {
     expect(extractCodeFromInput(CODE)).toBe(CODE);
   });
 
+  test('accepts console hard-wrap artifacts: embedded newlines/spaces in URL or code', () => {
+    // conhost hard-wraps the ~89-char pairing line at 80 cols — copies carry the wrap as whitespace
+    expect(extractCodeFromInput(`https://demo.pages.dev/#c=${CODE.slice(0, 10)}\n${CODE.slice(10)}`)).toBe(CODE);
+    expect(extractCodeFromInput(`Online: https://demo.pages.dev/#c=${CODE}`)).toBe(CODE);
+    expect(extractCodeFromInput(`${CODE.slice(0, 8)} ${CODE.slice(8)}`)).toBe(CODE);
+    expect(extractCodeFromInput(`${CODE.slice(0, 13)}\r\n${CODE.slice(13)}`)).toBe(CODE);
+  });
+
   test('rejects wrong length', () => {
     expect(extractCodeFromInput(CODE.slice(0, 25))).toBeNull();
     expect(extractCodeFromInput(`${CODE}A`)).toBeNull();

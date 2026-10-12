@@ -65,12 +65,14 @@ export function parseCodeFromHash(hash: string): string | null {
 /**
  * Pairing-screen input: a full pairing URL (code in the fragment), a `#c=`/`c=` form, or the bare
  * 26-char code; anything else → null. Case is NOT normalized — the engine prints exact uppercase.
+ * ALL whitespace is stripped first: consoles hard-wrap the long pairing line, so a copied
+ * URL/code often carries embedded newlines/spaces between chunks.
  */
 export function extractCodeFromInput(input: string): string | null {
-  const trimmed = input.trim();
-  if (trimmed === '') { return null; }
-  const hashIndex = trimmed.indexOf('#');
-  if (hashIndex !== -1) { return parseCodeFromHash(trimmed.slice(hashIndex)); }
-  if (trimmed.startsWith('c=')) { return parseCodeFromHash(trimmed); }
-  return /^[A-Z2-7]{26}$/.test(trimmed) ? trimmed : null;
+  const compact = input.replace(/\s+/g, '');
+  if (compact === '') { return null; }
+  const hashIndex = compact.indexOf('#');
+  if (hashIndex !== -1) { return parseCodeFromHash(compact.slice(hashIndex)); }
+  if (compact.startsWith('c=')) { return parseCodeFromHash(compact); }
+  return /^[A-Z2-7]{26}$/.test(compact) ? compact : null;
 }
