@@ -160,6 +160,8 @@ Applies after the Cloudflare deploy (hosted UI on Workers static assets + relay 
 | L14 | Staged action | ONE staged action over the relay (MCP toggle or Re-scan) → diff shown → confirm → applied → re-scan reflects it | [ ] | |
 | L15 | Rebind | While running, pick a different root from the site → dashboard switches to the new root without restarting the agent | [ ] | |
 | L16 | Offline + reconnect | Ctrl+C the agent → offline banner; rerun the same command → reconnects to the same room, state recovers | [ ] | |
+| L16a | Agent gone while picker open | Kill the agent while the picker shows → status turns "agente desconectado", browse/manual controls freeze, **Elegir carpeta…** errors instantly (no silent hang); rerun the same command → controls restore | [ ] | |
+| L16b | Dead-session reload | Reload the hosted page with `#c=` while the agent is gone → "Reconectando tu sesión…" then the launcher screen with the SAME command (never the empty dashboard); rerun the command → picker/dashboard over the same room | [ ] | |
 
 **Sign-off**
 
