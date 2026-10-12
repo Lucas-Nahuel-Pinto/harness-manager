@@ -46,6 +46,15 @@ async function startRelayOn(port: number): Promise<DevRelay> {
   throw new Error(`el relay no pudo reusar el puerto ${port}`);
 }
 
+/** Raw ws member that joins as engine and never answers — keeps requests pending on purpose. */
+async function joinSilentEngine(url: string, code: string): Promise<WebSocket> {
+  const ws = new WebSocket(url);
+  await new Promise<void>((r) => { ws.addEventListener('open', () => r(), { once: true }); });
+  const { room } = await deriveKey(code);
+  ws.send(JSON.stringify({ v: 1, t: 'join', room, role: 'engine' }));
+  return ws;
+}
+
 /** Engine side of the room: dispatches decrypted req frames through the real createApp. */
 function startEngine(relay: string, code: string, handler: FetchHandler = createApp(FIXTURE)): { close: () => Promise<void> } {
   const client = startRelayClient({
@@ -131,14 +140,18 @@ describe('WSTransport ↔ dev relay integration', () => {
   }, 15000);
 
   test('pending request with a tiny budget rejects with timeout', async () => {
-    const relay = startDevRelay(0); // no engine in the room — the req is forwarded to nobody
-    const transport = new WSTransport({ relayUrl: relayUrl(relay.port), code: generateCode() });
+    const relay = startDevRelay(0);
+    const code = generateCode();
+    let agentUp = false;
+    const transport = new WSTransport({ relayUrl: relayUrl(relay.port), code, onAgentPresence: (p) => { agentUp = p; } });
+    const engine = await joinSilentEngine(relayUrl(relay.port), code); // present, never answers
     try {
-      await waitFor(() => transport.status === 'online', 5000, 'transport online');
+      await waitFor(() => transport.status === 'online' && agentUp, 5000, 'transport online + engine presente');
       expect(await rejectsWith(transport.api('GET', '/api/snapshot', undefined, 120), 'timeout')).toBe(true);
       expect(transport.status).toBe('online'); // a timeout must not take the socket down
     }
     finally {
+      engine.close();
       transport.close();
       relay.stop();
     }
@@ -146,9 +159,12 @@ describe('WSTransport ↔ dev relay integration', () => {
 
   test('socket close rejects every pending request with "conexión perdida" and flips offline', async () => {
     const relay = startDevRelay(0);
-    const transport = new WSTransport({ relayUrl: relayUrl(relay.port), code: generateCode() });
+    const code = generateCode();
+    let agentUp = false;
+    const transport = new WSTransport({ relayUrl: relayUrl(relay.port), code, onAgentPresence: (p) => { agentUp = p; } });
+    const engine = await joinSilentEngine(relayUrl(relay.port), code); // present, never answers
     try {
-      await waitFor(() => transport.status === 'online', 5000, 'transport online');
+      await waitFor(() => transport.status === 'online' && agentUp, 5000, 'transport online + engine presente');
       const pending = transport.api('GET', '/api/snapshot', undefined, 5000);
       const outcome = rejectsWith(pending, 'conexión perdida'); // rejection handler attached immediately
       await sleep(50); // let the encrypted frame leave the socket
@@ -157,6 +173,7 @@ describe('WSTransport ↔ dev relay integration', () => {
       expect(await outcome).toBe(true);
     }
     finally {
+      engine.close();
       transport.close();
       relay.stop();
     }
@@ -196,14 +213,21 @@ describe('WSTransport ↔ dev relay integration', () => {
     }
   }, 30000);
 
-  test('presence frames from other members leave the pending map untouched', async () => {
+  test('presence broadcasts while the engine is present leave the pending map untouched', async () => {
     const relay = startDevRelay(0);
     const code = generateCode();
     const url = relayUrl(relay.port);
-    const transport = new WSTransport({ relayUrl: url, code });
+    let agentUp = false;
+    const transport = new WSTransport({ relayUrl: url, code, onAgentPresence: (present) => { agentUp = present; } });
+    let engine: WebSocket | null = null;
     let intruder: WebSocket | null = null;
     try {
-      await waitFor(() => transport.status === 'online', 5000, 'transport online');
+      // The engine member must be in the room: with it present, other members joining/leaving
+      // only change the ui roster and must never settle the pending request.
+      engine = await joinSilentEngine(url, code);
+      await waitFor(() => transport.status === 'online' && agentUp, 5000, 'transport online + engine presente');
+      const { room } = await deriveKey(code);
+
       const pending = transport.api('GET', '/api/snapshot', undefined, 3000);
       let settled = false;
       void pending.catch(() => { settled = true; });
@@ -211,7 +235,6 @@ describe('WSTransport ↔ dev relay integration', () => {
       // A second UI joins the room → presence broadcasts land on the transport mid-request.
       intruder = new WebSocket(url);
       await new Promise<void>((r) => { intruder!.addEventListener('open', () => r(), { once: true }); });
-      const { room } = await deriveKey(code);
       intruder.send(JSON.stringify({ v: 1, t: 'join', room, role: 'ui' }));
       await sleep(300);
       expect(settled).toBe(false); // presence/control must not resolve or reject the pending req
@@ -222,10 +245,46 @@ describe('WSTransport ↔ dev relay integration', () => {
     finally {
       try { intruder?.close(); }
       catch { /* already closed */ }
+      try { engine?.close(); }
+      catch { /* already closed */ }
       transport.close();
       relay.stop();
     }
   }, 10000);
+
+  test('agent presence: engine join/leave notifies; agent gone rejects pending and fast-fails api', async () => {
+    const relay = startDevRelay(0);
+    const code = generateCode();
+    const url = relayUrl(relay.port);
+    const seen: boolean[] = [];
+    const transport = new WSTransport({ relayUrl: url, code, onAgentPresence: p => seen.push(p) });
+    let engine: WebSocket | null = null;
+    try {
+      await waitFor(() => transport.status === 'online', 5000, 'transport online');
+      // The relay broadcasts presence right after the ui joins: empty room → false.
+      await waitFor(() => seen.length > 0, 5000, 'presence inicial');
+      expect(seen).toEqual([false]);
+
+      // Engine joins → notification; a request now travels (this engine never answers).
+      engine = await joinSilentEngine(url, code);
+      await waitFor(() => seen.at(-1) === true, 5000, 'agente presente');
+      const pending = transport.api('GET', '/api/snapshot', undefined, 3000);
+
+      // Engine leaves → the relay would drop the request silently; the transport fails it fast.
+      engine.close();
+      engine = null;
+      expect(await rejectsWith(pending, 'agente desconectado')).toBe(true);
+      await waitFor(() => seen.at(-1) === false, 5000, 'agente ausente');
+      // New calls with no agent in the room reject instantly (no budget wait).
+      expect(await rejectsWith(transport.api('GET', '/api/snapshot', undefined, 3000), 'agente desconectado')).toBe(true);
+    }
+    finally {
+      try { engine?.close(); }
+      catch { /* already closed */ }
+      transport.close();
+      relay.stop();
+    }
+  }, 15000);
 
   test('closed transport: status offline, onStatus fires, api rejects fast', async () => {
     const relay = startDevRelay(0);

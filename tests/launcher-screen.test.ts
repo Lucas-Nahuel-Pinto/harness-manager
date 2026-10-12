@@ -92,4 +92,21 @@ describe('waitForAgent', () => {
     })).toBeNull();
     expect(transport.calls).toHaveLength(1);
   });
+
+  test('maxAttempts exhausted → null (bounded resume-boot probe)', async () => {
+    const transport = fakeTransport([{ throws: new Error('agente desconectado') }]);
+    expect(await waitForAgent(transport, { probeTimeoutMs: 5, probeIntervalMs: 1, maxAttempts: 2 }))
+      .toBeNull();
+    expect(transport.calls).toHaveLength(2); // exactly maxAttempts probes, then give up
+  });
+
+  test('maxAttempts not exhausted by a late answer', async () => {
+    const transport = fakeTransport([
+      { throws: new Error('agente desconectado') },
+      { value: { state: 'running', root: '/x' } },
+    ]);
+    expect(await waitForAgent(transport, { probeTimeoutMs: 5, probeIntervalMs: 1, maxAttempts: 3 }))
+      .toEqual({ state: 'running', root: '/x' });
+    expect(transport.calls).toHaveLength(2);
+  });
 });

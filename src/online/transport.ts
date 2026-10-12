@@ -56,6 +56,8 @@ export interface WSTransportOptions {
   /** 26-char session code — derives room id + room key, never transmitted. */
   code: string
   onStatus?: (status: TransportStatus) => void
+  /** Agent (engine member) presence in the room — fired on every membership change. */
+  onAgentPresence?: (present: boolean) => void
 }
 
 interface Pending {
@@ -90,15 +92,20 @@ export class WSTransport implements Transport {
 
   private readonly pending = new Map<string, Pending>();
   private readonly statusListeners = new Set<(status: TransportStatus) => void>();
+  private readonly presenceListeners = new Set<(present: boolean) => void>();
   private readonly derived: Promise<{ room: string, key: CryptoKey }>;
   private socket: WebSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private attempt = 0;
   private closed = false;
+  /** Unknown until the first presence frame arrives (the relay broadcasts it right after join). */
+  private agentKnown = false;
+  private agentPresent = false;
 
   constructor(private readonly options: WSTransportOptions) {
     this.derived = deriveKey(options.code);
     if (options.onStatus) { this.statusListeners.add(options.onStatus); }
+    if (options.onAgentPresence) { this.presenceListeners.add(options.onAgentPresence); }
     void this.open();
   }
 
@@ -116,6 +123,11 @@ export class WSTransport implements Transport {
     // Fast-reject guard: no queueing while offline — callers get an error instead of hanging.
     if (this.status !== 'online' || this.socket?.readyState !== WebSocket.OPEN) {
       throw new Error(this.status === 'connecting' ? 'conectando con el motor' : 'conexión perdida');
+    }
+    // The room is known to have no agent (presence frame said so): the relay would silently
+    // drop the request and the caller would wait the whole budget for nothing.
+    if (this.agentKnown && !this.agentPresent) {
+      throw new Error('agente desconectado');
     }
     const { room, key } = await this.derived;
     const id = makeReqId();
@@ -163,7 +175,8 @@ export class WSTransport implements Transport {
   }
 
   private async onMessage(text: string): Promise<void> {
-    if (isPresence(text) || isControlShaped(text)) { return; } // never touch the pending map
+    if (isPresence(text)) { this.handlePresence(text); return; }
+    if (isControlShaped(text)) { return; }
     const { room, key } = await this.derived;
     let frame: ReqFrame | ResFrame;
     try {
@@ -179,6 +192,29 @@ export class WSTransport implements Transport {
     clearTimeout(entry.timer);
     this.pending.delete(frame.id);
     entry.resolve(frame.body);
+  }
+
+  /**
+   * Cleartext presence frame: track whether an engine (agent) member is in the room. When the
+   * agent leaves, in-flight requests can never be answered (the relay drops them silently) —
+   * reject them immediately instead of letting callers wait out the whole budget.
+   */
+  private handlePresence(text: string): void {
+    let present = false;
+    try {
+      const parsed: unknown = JSON.parse(text);
+      const frame = parsed as { members?: unknown };
+      if (!Array.isArray(frame.members)) { return; }
+      present = (frame.members as Array<{ role?: unknown }>).some(member => member?.role === 'engine');
+    }
+    catch {
+      return;
+    }
+    if (this.agentKnown && present === this.agentPresent) { return; }
+    this.agentKnown = true;
+    this.agentPresent = present;
+    if (!present) { this.rejectAllPending(new Error('agente desconectado')); }
+    for (const cb of this.presenceListeners) { cb(present); }
   }
 
   private handleDown(ws: WebSocket): void {

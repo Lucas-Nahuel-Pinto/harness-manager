@@ -51,12 +51,14 @@ export interface WaitForAgentOptions {
   probeIntervalMs?: number
   /** Cancel seam (tab teardown / boot handoff) — resolves `null` on the next check. */
   isCancelled?: () => boolean
+  /** Bounded probing: give up (null) after this many failed attempts. Default: wait forever. */
+  maxAttempts?: number
 }
 
 /**
  * Poll `/api/agent/status` until the agent answers (short timeouts — the room is
  * legitimately empty while the operator types the command on their PC). Returns
- * the agent status, or `null` when cancelled.
+ * the agent status, or `null` when cancelled or out of attempts.
  */
 export async function waitForAgent(
   transport: Transport,
@@ -65,11 +67,15 @@ export async function waitForAgent(
   const probeTimeoutMs = opts.probeTimeoutMs ?? 4000;
   const probeIntervalMs = opts.probeIntervalMs ?? 2000;
   const isCancelled = opts.isCancelled ?? ((): boolean => false);
+  const maxAttempts = opts.maxAttempts ?? Number.POSITIVE_INFINITY;
+  let attempts = 0;
   while (!isCancelled()) {
     try {
       return await transport.api<AgentStatus>('GET', '/api/agent/status', undefined, probeTimeoutMs);
     }
     catch { /* agent not in the room yet (or probe budget expired) */ }
+    attempts += 1;
+    if (attempts >= maxAttempts) { return null; }
     await new Promise<void>(resolve => setTimeout(resolve, probeIntervalMs));
   }
   return null;
@@ -80,6 +86,12 @@ const CONN_TEXT: Record<TransportStatus, string> = {
   connecting: '● conectando con el relay…',
   offline: '● relay inaccesible — reintentando…',
 };
+
+const PICKER_STATUS = '● agente conectado — elegí el harness';
+const AGENT_GONE_STATUS = '● agente desconectado — corré el comando de nuevo';
+const AGENT_GONE_ERROR = 'El agente se desconectó — corré el comando de nuevo (la sala sigue abierta)';
+const BROWSE_TEXT = 'Elegir carpeta…';
+const BROWSE_BUSY_TEXT = 'Abriendo el diálogo en la PC del agente…';
 
 /**
  * Render the launcher screen into `#app` and wire the flow. The code lives only
@@ -145,10 +157,12 @@ export function renderLauncherScreen(onPaired: (code: string) => void): void {
   });
 
   let cancelled = false;
+  let applyAgentPresence: ((present: boolean) => void) | null = null;
   const transport = new WSTransport({
     relayUrl: relayOverride(window.location.search) ?? RELAY_URL,
     code,
     onStatus: (status) => { statusEl.textContent = CONN_TEXT[status]; },
+    onAgentPresence: (present) => { applyAgentPresence?.(present); },
   });
 
   void waitForAgent(transport, { isCancelled: () => cancelled }).then((status) => {
@@ -169,22 +183,41 @@ export function renderLauncherScreen(onPaired: (code: string) => void): void {
   function renderPicker(): void {
     const slot = document.getElementById('picker-slot');
     if (!slot) { return; }
-    statusEl.textContent = '● agente conectado — elegí el harness';
+    statusEl.textContent = PICKER_STATUS;
     slot.innerHTML = `
       <p class="pairing-hint">Elegí el harness en la PC del agente:</p>
       <div class="picker-recents" id="picker-recents"></div>
       <div class="picker-row">
-        <button type="button" class="pairing-connect" id="picker-browse">Elegir carpeta…</button>
+        <button type="button" class="pairing-connect" id="picker-browse">${BROWSE_TEXT}</button>
       </div>
       <form id="picker-path-form" novalidate>
         <input id="picker-path" class="pairing-input" type="text" placeholder="o pegá la ruta absoluta: C:\\…  /  home/…" autocomplete="off" spellcheck="false" />
         <div class="pairing-error" id="picker-error" hidden></div>
-        <button class="pairing-connect" type="submit">Usar esta ruta</button>
+        <button class="pairing-connect" id="picker-submit" type="submit">Usar esta ruta</button>
       </form>`;
 
     const errorEl2 = document.getElementById('picker-error') as HTMLElement;
     const pathInput = document.getElementById('picker-path') as HTMLInputElement;
     const browseButton = document.getElementById('picker-browse') as HTMLButtonElement;
+    const submitButton = document.getElementById('picker-submit') as HTMLButtonElement;
+
+    // The picker only renders when the agent just answered — presence keeps it truthful from
+    // here on: agent gone → freeze the controls + explain; agent back → restore (same room).
+    let agentPresent = true;
+    let browseBusy = false;
+    applyAgentPresence = (present) => {
+      agentPresent = present;
+      statusEl.textContent = present ? PICKER_STATUS : AGENT_GONE_STATUS;
+      submitButton.disabled = !present;
+      browseButton.disabled = !present || browseBusy;
+      if (present) {
+        errorEl2.hidden = true;
+      }
+      else {
+        errorEl2.textContent = AGENT_GONE_ERROR;
+        errorEl2.hidden = false;
+      }
+    };
 
     void transport.api<RecentEntryView[]>('GET', '/api/agent/recents', undefined, 8000).then((entries) => {
       const recentsEl = document.getElementById('picker-recents');
@@ -197,10 +230,12 @@ export function renderLauncherScreen(onPaired: (code: string) => void): void {
       recentsEl.querySelectorAll<HTMLButtonElement>('.picker-recent').forEach((button) => {
         button.addEventListener('click', () => { void bindRoot(button.dataset.path ?? ''); });
       });
-    });
+    }).catch(() => { /* recents are optional — agent gone/timeout already surfaced elsewhere */ });
 
     browseButton.addEventListener('click', () => {
+      browseBusy = true;
       browseButton.disabled = true;
+      browseButton.textContent = BROWSE_BUSY_TEXT; // the dialog opens on the AGENT's PC, not here
       errorEl2.hidden = true;
       // The native dialog is user-paced — generous budget (spec §3.3). Agent 4xx bodies RESOLVE
       // (transport resolves any status) — handle the shape here instead of via catch.
@@ -213,10 +248,16 @@ export function renderLauncherScreen(onPaired: (code: string) => void): void {
           }
         })
         .catch((error: unknown) => {
-          errorEl2.textContent = `${messageOf(error)} — usá la ruta manual de acá abajo`;
+          const message = messageOf(error);
+          // Agent gone → the transport fails fast instead of hanging the whole 120s budget.
+          errorEl2.textContent = message === 'agente desconectado' ? AGENT_GONE_ERROR : `${message} — usá la ruta manual de acá abajo`;
           errorEl2.hidden = false;
         })
-        .finally(() => { browseButton.disabled = false; });
+        .finally(() => {
+          browseBusy = false;
+          browseButton.textContent = BROWSE_TEXT;
+          browseButton.disabled = !agentPresent;
+        });
     });
 
     document.getElementById('picker-path-form')?.addEventListener('submit', (event) => {

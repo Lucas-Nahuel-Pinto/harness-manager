@@ -1,10 +1,11 @@
+import type { AgentStatus } from './online/launcher-screen.ts';
 import type { UiMode } from './online/mode.ts';
 import type { TransportStatus } from './online/transport.ts';
 import type { EnvStatus, GraphKind, TabId } from './state.ts';
 import type { SkillTier } from './types.ts';
 import { escapeHtml, renderDetail } from './components/detail-panel.ts';
 import { agentHosts, graphKindLabels, mcpConfigFiles, meta, warningCount } from './model.ts';
-import { renderLauncherScreen } from './online/launcher-screen.ts';
+import { renderLauncherScreen, waitForAgent } from './online/launcher-screen.ts';
 import { detectMode, relayOverride } from './online/mode.ts';
 import { parseCodeFromHash, RELAY_URL } from './online/pairing.ts';
 import { WSTransport } from './online/transport.ts';
@@ -305,17 +306,47 @@ function startOnlineTransport(): void {
       notify();
       if (status === 'online') { void refreshSnapshot({ silent: true }); }
     },
+    onAgentPresence: (present) => {
+      // Agent (re)joined the room → pull fresh data; the empty shell waits otherwise.
+      if (present) { void refreshSnapshot({ silent: true }); }
+    },
   });
   enableOnlineMode(transport);
   renderConnBadge(transport.status);
 }
 
+/**
+ * Hosted boot WITH a `#c=` fragment: probe the room before mounting the dashboard. A dead
+ * session (agent gone, expired room) must fall back to the launcher screen — same code, so
+ * `bun agent.ts <CODE>` rejoins the room — instead of an empty "Esperando motor…" dashboard.
+ */
+async function resumeOnlineSession(): Promise<void> {
+  const app = document.getElementById('app');
+  if (app) { app.innerHTML = '<div class="pairing"><p class="pairing-hint">Reconectando tu sesión…</p></div>'; }
+  const code = parseCodeFromHash(window.location.hash);
+  if (code === null) { bootApp('online'); return; } // detectMode already validated — defensive
+  const probe = new WSTransport({ relayUrl: relayOverride(window.location.search) ?? RELAY_URL, code });
+  let status: AgentStatus | null = null;
+  try {
+    status = await waitForAgent(probe, { probeTimeoutMs: 3000, probeIntervalMs: 1500, maxAttempts: 3 });
+  }
+  finally {
+    probe.close();
+  }
+  if (status?.state === 'running') { bootApp('online'); }
+  else { renderLauncherScreen(() => { bootApp('online'); }); } // picker state or dead room → launcher (same #c=)
+}
+
 // Mode detection: local/file origins keep the historical fetch path (embedded build unchanged);
 // hosted origins without a valid #c= fragment land on the launcher screen (site-generated code,
-// bootstrap command, web picker — spec 2026-10-11).
+// bootstrap command, web picker — spec 2026-10-11); with a #c= fragment the agent is probed
+// first so dead sessions fall back to the launcher instead of a zombie dashboard.
 const mode = detectMode(window.location.origin, window.location.hash, window.location.search);
 if (mode === 'online-unpaired') {
   renderLauncherScreen(() => { bootApp('online'); });
+}
+else if (mode === 'online') {
+  void resumeOnlineSession();
 }
 else {
   bootApp(mode);
