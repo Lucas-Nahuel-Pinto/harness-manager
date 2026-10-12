@@ -91,6 +91,7 @@ Re-deploying an update repeats `deploy:ui` (and the relay command only when `rel
 2. Run the command on the PC where the harness lives. The agent derives room + key from the same code, joins the relay as the engine, and the site advances to the **harness picker** (recents · native dialog · manual path).
 3. Pick a root → the dashboard boots over the same encrypted channel. Re-picking a root rebinds the agent in place; Ctrl+C on the agent shows the offline banner.
 4. **Paste fallback**: if the agent was started first (`bun agent.ts` with no code — it prints `Online: <PAGES_URL>/#c=<CODE>`), paste that URL/code into the launcher screen to join its room instead.
+5. **Share the control**: send someone the pairing URL (`<PAGES_URL>/#c=<CODE>`) — they open it from any browser and land in the same room, controlling the same harness; the code is the session credential, so share it only with people you trust.
 
 ## The 6 tabs
 
@@ -145,6 +146,7 @@ _TODO — capture into `docs/screenshots/` before publishing:_
 - Design: `docs/superpowers/specs/2026-10-07-harness-manager-design.md`
 - Plan: `docs/plans/2026-10-07-implementation-plan.md`
 - Web picker + headless agent (current architecture): `docs/superpowers/specs/2026-10-11-web-picker-agent-design.md`
+- Online vs. 100% offline (why hosted): `docs/online-vs-offline.md`
 - Acceptance checklist: `docs/acceptance.md`
 
 ## License
