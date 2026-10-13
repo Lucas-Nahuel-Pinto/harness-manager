@@ -146,7 +146,7 @@
           "id": { "type": "string" },
           "name": { "type": "string" },
           "path": { "type": "string" },
-          "kind": { "enum": ["skill-registry", "kata-manifest", "models-catalog"] },
+          "kind": { "enum": ["skill-registry", "kata-manifest"] },
           "entries": { "type": "integer", "minimum": 0 },
           "stale": { "type": ["boolean", "null"] }
         }

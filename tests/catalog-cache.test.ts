@@ -1,9 +1,9 @@
 import type { ModelCatalog } from '../src/catalog/cache.ts';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'bun:test';
-import { declaresInterest, DEFAULT_TTL_MS, isStale, readCatalog, writeCatalogAtomic } from '../src/catalog/cache.ts';
+import { DEFAULT_TTL_MS, isStale, readCatalog, writeCatalogAtomic } from '../src/catalog/cache.ts';
 
 function makeCatalog(fetchedAt: number): ModelCatalog {
   return {
@@ -94,47 +94,5 @@ describe('isStale', () => {
 
   test('future fetchedAt is fresh', () => {
     expect(isStale(makeCatalog(10_000), 1_000, 1_000)).toBe(false);
-  });
-});
-
-describe('declaresInterest', () => {
-  test('manifest declaring models → true (no file, no package.json needed)', () => {
-    expect(declaresInterest(tempRoot(), { models: {} })).toBe(true);
-    expect(declaresInterest(tempRoot(), { models: { catalog: 'custom.json' } })).toBe(true);
-  });
-
-  test('existing catalog file at root → true', () => {
-    const root = tempRoot();
-    expect(declaresInterest(root, null)).toBe(false);
-    writeFileSync(join(root, '.models.catalog.json'), '{}', 'utf8');
-    expect(declaresInterest(root, null)).toBe(true);
-  });
-
-  test('manifest-declared catalog filename is honored via catalogFile param', () => {
-    const root = tempRoot();
-    writeFileSync(join(root, 'custom.catalog.json'), '{}', 'utf8');
-    expect(declaresInterest(root, null, 'custom.catalog.json')).toBe(true);
-    expect(declaresInterest(root, null)).toBe(false); // default name absent
-  });
-
-  test('package.json harness-config script → true', () => {
-    const root = tempRoot();
-    mkdirSync(root, { recursive: true });
-    writeFileSync(join(root, 'package.json'), JSON.stringify({ scripts: { 'harness-config': 'bun scripts/x.ts' } }), 'utf8');
-    expect(declaresInterest(root, null)).toBe(true);
-  });
-
-  test('negative: nothing declared, no file, no harness-config → false', () => {
-    const root = tempRoot();
-    writeFileSync(join(root, 'package.json'), JSON.stringify({ scripts: { test: 'bun test' } }), 'utf8');
-    expect(declaresInterest(root, null)).toBe(false);
-    expect(declaresInterest(root, {})).toBe(false);
-    expect(declaresInterest(root, null)).toBe(false);
-  });
-
-  test('malformed package.json never throws', () => {
-    const root = tempRoot();
-    writeFileSync(join(root, 'package.json'), '{ broken', 'utf8');
-    expect(declaresInterest(root, null)).toBe(false);
   });
 });

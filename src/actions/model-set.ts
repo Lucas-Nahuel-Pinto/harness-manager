@@ -2,8 +2,7 @@ import type { ComputeResult } from './types.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { scanHarness } from '../scan/index.ts';
 import { parseJsonc } from '../scan/jsonc.ts';
-import { CONVENTION, loadManifest } from '../scan/manifest.ts';
-import { scanCatalog } from '../scan/misc.ts';
+import { loadManifest } from '../scan/manifest.ts';
 import { resolveInRoot } from './guard.ts';
 import { locatePath } from './locate.ts';
 import { fail, okEdit } from './types.ts';
@@ -27,13 +26,11 @@ export async function computeModelSet(rootAbs: string, payload: Record<string, u
   const agent = snapshot.agents.find(candidate => candidate.id === agentId);
   if (!agent) { return fail(400, 'agent_not_found', `no existe el agente "${agentId}"`); }
 
-  const { manifest } = loadManifest(rootAbs);
-  const catalogFile = manifest.models?.catalog ?? CONVENTION.modelCatalog;
-  const catalog = scanCatalog(rootAbs, catalogFile, []);
-  const allowed = new Set(catalog.map(entry => entry.id));
+  // The fresh scan already refreshed and read the shared catalog store (option B).
+  const allowed = new Set(snapshot.catalog.models.map(entry => entry.id));
   if (agent.model) { allowed.add(agent.model); }
   if (!allowed.has(model)) {
-    return fail(400, 'invalid_model', `"${model}" no está en ${catalogFile} ni es el modelo actual (${allowed.size} opciones)`);
+    return fail(400, 'invalid_model', `"${model}" no está en el catálogo compartido ni es el modelo actual (${allowed.size} opciones)`);
   }
   if (model === agent.model) {
     const summary = `Modelo de ${agent.name} ya es "${model}" (sin cambios)`;
@@ -44,7 +41,9 @@ export async function computeModelSet(rootAbs: string, payload: Record<string, u
     return okEdit({ relPath, absPath, oldText: text, newText: text, summary });
   }
 
-  return agent.isMain ? computeMain(rootAbs, manifest, model) : computeSubagent(rootAbs, agent.path, agent.name, model);
+  return agent.isMain
+    ? computeMain(rootAbs, loadManifest(rootAbs).manifest, model)
+    : computeSubagent(rootAbs, agent.path, agent.name, model);
 }
 
 function computeMain(

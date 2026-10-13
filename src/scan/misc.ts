@@ -1,10 +1,9 @@
 import type { CatalogModel, EnvVarEl, HealthEl, RegistryEl, ScriptEl } from '../types.ts';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { declaresInterest, DEFAULT_TTL_MS, isStale, readCatalog, writeCatalogAtomic } from '../catalog/cache.ts';
+import { basename, join } from 'node:path';
+import { DEFAULT_TTL_MS, isStale, readCatalog, writeCatalogAtomic } from '../catalog/cache.ts';
 import { fetchModels } from '../catalog/fetch.ts';
 import { parseJsonc } from './jsonc.ts';
-import { loadManifest } from './manifest.ts';
 
 /** Refresh budget (spec §3.6): hard 15s cap on the whole fetch, then degrade to a warning. */
 const REFRESH_BUDGET_MS = 15_000;
@@ -18,22 +17,18 @@ function catalogTtlMs(): number {
 }
 
 /**
- * Native catalog refresh on the rescan path (spec §3.5–3.8): runs only when the
- * harness declares interest AND the cache is missing or stale, awaits the fetch
- * before the scan reads the file (no read/write race), and keeps the old file on
- * total failure. Returns a warning string for the snapshot, or null when nothing
- * needed doing. Never throws.
+ * Native catalog refresh on the rescan path (spec §3.5–3.8, shared-store revision
+ * 2026-10-13): runs for EVERY harness when the engine-owned store is missing or
+ * stale — there is no interest gate and the harness root is never written to.
+ * Awaits the fetch before the scan reads the store (no read/write race), keeps
+ * the old store on total failure. Returns a warning string for the snapshot, or
+ * null when nothing needed doing. Never throws.
  */
 export async function refreshModelCatalog(
-  root: string,
-  catalogFile: string,
+  storePath: string,
   opts: { fetchImpl?: typeof fetch } = {},
 ): Promise<string | null> {
-  const { manifest } = loadManifest(root);
-  if (!declaresInterest(root, manifest, catalogFile)) { return null; }
-
-  const path = join(root, catalogFile);
-  const cached = readCatalog(path);
+  const cached = readCatalog(storePath);
   if (cached && !isStale(cached, catalogTtlMs())) { return null; }
 
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -46,7 +41,7 @@ export async function refreshModelCatalog(
     if (fetched.models.length === 0 && fetched.sources.length === 0) {
       return 'model catalog refresh failed (all sources)';
     }
-    writeCatalogAtomic(path, fetched);
+    writeCatalogAtomic(storePath, fetched);
     return null;
   }
   catch (e) {
@@ -91,13 +86,13 @@ export function scanScripts(root: string, warnings: string[]): ScriptEl[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function scanCatalog(root: string, catalogFile: string, warnings: string[]): CatalogModel[] {
-  const path = join(root, catalogFile);
-  if (!existsSync(path)) { return []; }
+/** Read the shared engine-owned catalog store. Missing file, invalid JSON, or wrong shape → []. */
+export function scanCatalog(storePath: string, warnings: string[]): CatalogModel[] {
+  if (!existsSync(storePath)) { return []; }
 
-  const parsed = parseJsonc<{ models?: unknown[] }>(readFileSync(path, 'utf8'));
+  const parsed = parseJsonc<{ models?: unknown[] }>(readFileSync(storePath, 'utf8'));
   if (!parsed.value) {
-    warnings.push(`${catalogFile}: ${parsed.error}`);
+    warnings.push(`${basename(storePath)}: ${parsed.error}`);
     return [];
   }
   const models = Array.isArray(parsed.value.models) ? parsed.value.models : [];
@@ -160,22 +155,6 @@ export function scanRegistries(root: string, skillCount: number, warnings: strin
       path: 'kata-manifest.json',
       kind: 'kata-manifest',
       entries: kata,
-      stale: null,
-    });
-  }
-
-  const catalogPath = join(root, '.models.catalog.json');
-  const catalogCount = countFile(catalogPath, (text) => {
-    const parsed = parseJsonc<{ models?: unknown[] }>(text);
-    return parsed.value && Array.isArray(parsed.value.models) ? parsed.value.models.length : 0;
-  });
-  if (catalogCount !== null) {
-    out.push({
-      id: 'registry:models-catalog',
-      name: 'Models Catalog',
-      path: '.models.catalog.json',
-      kind: 'models-catalog',
-      entries: catalogCount,
       stale: null,
     });
   }

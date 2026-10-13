@@ -7,7 +7,6 @@ import { getState, select } from '../state.ts';
 const REGISTRY_LABELS: Record<string, string> = {
   'skill-registry': 'registro de skills',
   'kata-manifest': 'kata manifest',
-  'models-catalog': 'catálogo de modelos',
 };
 
 export function renderScriptsRegistry(container: HTMLElement): void {

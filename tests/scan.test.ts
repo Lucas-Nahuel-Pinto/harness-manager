@@ -47,14 +47,13 @@ describe('scanHarness', () => {
     const registry = snapshot.registries.find(r => r.kind === 'skill-registry');
     expect(registry?.entries).toBe(2);
     expect(registry?.stale).toBe(true); // indexed 2 vs 1 scanned
-    expect(snapshot.registries.find(r => r.kind === 'models-catalog')?.entries).toBe(1);
 
     expect(snapshot.health.docs.agentsMd).toBe(true);
     expect(snapshot.health.ci.workflows).toEqual(['ci.yml']);
     expect(snapshot.health.ci.husky).toBe(false);
     expect(snapshot.health.tests).toEqual({ testScript: true, lintScript: true, typesScript: false });
 
-    expect(snapshot.catalog.models).toHaveLength(1);
+    expect(snapshot.catalog.models).toHaveLength(1); // shared store (seeded by tests/setup-catalog.ts)
     expect(snapshot.meta.manifest).toBe(false);
   });
 

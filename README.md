@@ -48,7 +48,7 @@ The agent **is** the engine (one process, no window, no local port): it joins th
 
 ## Model catalog
 
-Harness-manager owns the model-catalog fetch — the harness only reads the file (offline-graceful: missing or stale → model-dependent features skip, nothing crashes). On every rescan, if the harness declares interest (manifest `models`, an existing `.models.catalog.json`, or a `harness-config` script) and the catalog is missing or older than 24h, harness-manager refreshes it natively (no subprocess), writes it atomically, and only then scans. On total fetch failure the old file stays untouched and the snapshot carries a refresh warning.
+Harness-manager owns the model catalog in a single **engine-side shared store** (`data/models.catalog.json`, relocatable via `MODELS_CATALOG_PATH`) — harness roots are never written to, so any harness you point at gets a working model dropdown with zero setup (offline-graceful: missing or stale store → model-dependent features degrade, nothing crashes). On every rescan, if the store is missing or older than 24h, harness-manager refreshes it natively (no subprocess), writes it atomically, and only then scans. On total fetch failure the old store stays untouched and the snapshot carries a refresh warning. A leftover per-harness `.models.catalog.json` (pre-shared-store design) is ignored.
 
 Sources: the public OpenCode Zen endpoints plus `models.dev` metadata (deprecated models filtered). Provider endpoints (Google / Anthropic / OpenAI / DeepSeek / Kimi) are added only when their key exists in harness-manager's own `process.env` — keys are used transiently in the request and never persisted, displayed, or read from harness `.env` files. `MODELS_CATALOG_URLS` (comma-separated) overrides the source list; `MODELS_CACHE_TTL` (seconds) overrides the staleness TTL.
 
@@ -101,7 +101,7 @@ Re-deploying an update repeats `deploy:ui` (and the relay command only when `rel
 | --- | --- |
 | **Resumen** | KPI counts (skills, commands, agents, MCPs, env, scripts, registries) + health columns **H-J**. Each health card is clickable → drill-down detail (required docs with paths, workflows + husky hooks, gate scripts + stale registries + snapshot warnings). |
 | **Skills + Commands** | Sortable table (tier, refs, evals, registered, state) + commands section; detail panel with triggers/refs/scripts and copy-path. |
-| **Agents & Modelos** | Main agent + subagent table with current `model:` frontmatter; model picker from `.models.catalog.json` with diff + confirm (serve mode only). |
+| **Agents & Modelos** | Main agent + subagent table with current `model:` frontmatter; model picker from the shared catalog store with diff + confirm (serve mode only). |
 | **MCPs + Env** | MCP cards (config file, enabled state, env refs) with toggle action; env presence matrix (`.env.example` vs `.env`, read-only). |
 | **Scripts + Registros** | Script runner with output pane (serve mode only) + registry status/staleness. |
 | **Grafo** | Cytoscape + fcose relational graph (skill → refs → scripts, agent → skills, MCP → env); per-filter position cache, selection illumination, click → detail. |

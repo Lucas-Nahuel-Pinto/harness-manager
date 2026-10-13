@@ -1,6 +1,7 @@
 import type { AgentEl, HarnessSnapshot } from '../types.ts';
 import { existsSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
+import { catalogStorePath } from '../catalog/store.ts';
 import { readMainModel, scanAgents, scanMcps } from './agents.ts';
 import { CONVENTION, loadManifest } from './manifest.ts';
 import { refreshModelCatalog, scanCatalog, scanEnv, scanHealth, scanRegistries, scanScripts } from './misc.ts';
@@ -35,11 +36,12 @@ export async function scanHarness(rootInput: string, opts: ScanOptions = {}): Pr
     const mcpFiles = manifest.mcps ?? CONVENTION.mcpFiles;
     const envExample = manifest.env?.example ?? CONVENTION.envExample;
     const envFile = manifest.env?.file ?? CONVENTION.envFile;
-    const catalogFile = manifest.models?.catalog ?? CONVENTION.modelCatalog;
     const mainCfg = manifest.models?.main ?? { file: 'opencode.jsonc', jsonPath: 'model' };
 
-    // Await the refresh BEFORE any scan reads the catalog file (spec §3.6 — no read/write race).
-    const refreshWarning = await refreshModelCatalog(root, catalogFile, opts);
+    // Shared engine-owned store (option B): refresh for ANY harness, never inside the root.
+    // Await the refresh BEFORE the scan reads the store (spec §3.6 — no read/write race).
+    const store = catalogStorePath();
+    const refreshWarning = await refreshModelCatalog(store, opts);
     if (refreshWarning) { warnings.push(refreshWarning); }
 
     const skills = scanSkills(root, skillDirs, warnings);
@@ -54,7 +56,7 @@ export async function scanHarness(rootInput: string, opts: ScanOptions = {}): Pr
     const scripts = scanScripts(root, warnings);
     const registries = scanRegistries(root, skills.length, warnings);
     const health = scanHealth(root);
-    const catalog = scanCatalog(root, catalogFile, warnings);
+    const catalog = scanCatalog(store, warnings);
 
     const total = skills.length + commands.length + agents.length + mcps.length
       + env.length + scripts.length;

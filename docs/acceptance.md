@@ -179,9 +179,9 @@ Applies after the catalog-ownership phase (fetch moved from the boilerplate into
 
 | # | Check | Expected observation | Done | Notes |
 | --- | --- | --- | --- | --- |
-| L17 | Stale refresh | Deleting or aging `.models.catalog.json` in the harness root + Re-scan → file rewritten atomically (`fetchedAt` updated, `sources` populated), registry card shows entry count, model-set validates against the refreshed list | [x] | |
-| L18 | No-interest harness | A root without manifest `models`, without a catalog file and without a `harness-config` script is never written to (no `.models.catalog.json` appears after Re-scan) | [x] | |
-| L19 | Degraded fetch | With sources unreachable, the old catalog stays intact, the snapshot carries a refresh warning, and the rescan still succeeds | [x] | |
+| L17 | Shared-store refresh | Aging or deleting the engine-side catalog store (`data/models.catalog.json` / `MODELS_CATALOG_PATH`) + Re-scan → store rewritten atomically (`fetchedAt` updated, `sources` populated), model picker serves the refreshed list, model-set validates against it | [x] | Re-scoped 2026-10-13 (shared store, option B); covered by `tests/catalog-refresh.test.ts` |
+| L18 | Harness root never written | Scanning any harness (bare minimal root included) refreshes only the engine-side store — no `.models.catalog.json` ever appears inside the harness root; a leftover per-harness catalog file is ignored | [x] | Re-scoped 2026-10-13; covered by `tests/catalog-refresh.test.ts` |
+| L19 | Degraded fetch | With sources unreachable, the old store stays intact, the snapshot carries a refresh warning, and the rescan still succeeds | [x] | |
 
 **Sign-off**
 

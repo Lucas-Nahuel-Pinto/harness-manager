@@ -1,15 +1,16 @@
 /**
- * MODEL CATALOG CACHE — read / atomic write / staleness / interest gate.
+ * MODEL CATALOG CACHE — read / atomic write / staleness.
  *
- * The on-disk contract is byte-compatible with the boilerplate harness's
- * `scripts/model-catalog.ts` (`{ models, fetchedAt, sources }` at
- * `<root>/<catalogFile>` — spec §3.1), so both sides read the same file.
+ * The store is engine-owned and SHARED across every harness: ONE file resolved by
+ * catalog/store.ts (option B, 2026-10-13), never written inside a harness root.
+ * On-disk shape stays `{ models, fetchedAt, sources }` (spec §3.1) so old caches
+ * and the boilerplate's `scripts/model-catalog.ts` remain parseable.
  * Keys never appear here: the catalog stores model metadata only.
  */
 
 import type { ModelEntry } from './parsers.ts';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 
 export interface ModelCatalog {
   models: ModelEntry[]
@@ -47,28 +48,4 @@ export function writeCatalogAtomic(path: string, catalog: ModelCatalog): void {
   const tmpPath = `${path}.tmp`;
   writeFileSync(tmpPath, `${JSON.stringify(catalog, null, 2)}\n`, 'utf8');
   renameSync(tmpPath, path);
-}
-
-/**
- * Write-scope gate (spec §3.5): the harness wants a catalog when its manifest
- * declares `models`, the catalog file already exists (at the manifest-declared
- * name or `.models.catalog.json`), or package.json ships a `harness-config`
- * script. Arbitrary harnesses are never littered.
- */
-export function declaresInterest(
-  root: string,
-  manifest: { models?: unknown } | null,
-  catalogFile = '.models.catalog.json',
-): boolean {
-  if (manifest?.models) { return true; }
-  if (existsSync(join(root, catalogFile))) { return true; }
-  const pkgPath = join(root, 'package.json');
-  if (existsSync(pkgPath)) {
-    try {
-      const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { scripts?: Record<string, string> };
-      if (pkg.scripts?.['harness-config']) { return true; }
-    }
-    catch { }
-  }
-  return false;
 }

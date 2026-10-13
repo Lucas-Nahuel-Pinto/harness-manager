@@ -17,7 +17,7 @@ Panoramic agent-harness dashboard, **100% online**: hosted single-file UI (Cloud
 
 ## Rules
 
-1. `data/harness.json` and `dist-online/` are generated artifacts — never hand-edit them.
+1. `data/` artifacts (`harness.json`, `recents.json`, `models.catalog.json`) and `dist-online/` are generated — never hand-edit them. The model catalog store is engine-owned and shared across harnesses (no per-harness catalog files).
 2. A failed, empty, or invalid scan NEVER overwrites the last good snapshot — abort by name.
 3. The scanner reads only the target harness directory. **Env values are never read or written** — only variable names and presence.
 4. All writes from agent actions are confined to the harness root (path-traversal guard) and always go through diff → confirmation → atomic write → re-scan.

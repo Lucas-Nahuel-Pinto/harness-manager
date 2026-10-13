@@ -58,7 +58,7 @@ export interface RegistryEl {
   id: string
   name: string
   path: string
-  kind: 'skill-registry' | 'kata-manifest' | 'models-catalog'
+  kind: 'skill-registry' | 'kata-manifest'
   entries: number
   stale: boolean | null
 }

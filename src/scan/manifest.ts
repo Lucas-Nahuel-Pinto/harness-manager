@@ -12,7 +12,6 @@ export interface HarnessManifest {
   models?: {
     main?: { file: string, jsonPath: string }
     subagents?: { glob: string, field: string }
-    catalog?: string
   }
 }
 
@@ -41,7 +40,6 @@ export const CONVENTION = {
   mcpFiles: ['opencode.jsonc', '.mcp.json'],
   envExample: '.env.example',
   envFile: '.env',
-  modelCatalog: '.models.catalog.json',
   registry: '.claude/skills/REGISTRY.md',
   kataManifest: 'kata-manifest.json',
 };
