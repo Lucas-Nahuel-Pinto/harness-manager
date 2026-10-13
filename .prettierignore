@@ -5,7 +5,7 @@ package-lock.json
 
 # Generated data — written by the pipeline, never hand-formatted
 data/
-dist/
+dist-online/
 
 # Env (never commit real credentials)
 .env
@@ -13,7 +13,6 @@ dist/
 .env.*.local
 
 # Tool session output
-.superpowers/
 *.log
 
 # IDE / OS
@@ -21,5 +20,3 @@ dist/
 .vscode/
 .DS_Store
 Thumbs.db
-dist-online/
-build/
