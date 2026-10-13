@@ -1,6 +1,6 @@
 # Claude-Effective MCP Toggle — Design
 
-**Date:** 2026-10-13 · **Status:** approved · **Scope:** harness-manager repo only
+**Date:** 2026-10-13 · **Status:** implemented (2026-10-13 — engine `eaeebb8`) · **Scope:** harness-manager repo only
 **Amends:** `2026-10-07-harness-manager-design.md` (D1 marker semantics) — the `"enabled": false` marker stays the OpenCode contract; `.mcp.json` gains the mechanism Claude Code actually honors.
 
 ## 1. Problem

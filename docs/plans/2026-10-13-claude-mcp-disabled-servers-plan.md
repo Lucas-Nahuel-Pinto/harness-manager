@@ -1,6 +1,6 @@
 # Claude-Effective MCP Toggle — Implementation Plan
 
-**Spec:** `docs/superpowers/specs/2026-10-13-claude-mcp-disabled-servers-design.md` · **Gate:** `bun run repo:check` green · **Single phase — everything ships together** (engine, scan, UI hint, docs are one behavior change; a partial ship would let the dashboard lie in between)
+**Spec:** `docs/superpowers/specs/2026-10-13-claude-mcp-disabled-servers-design.md` (commit `98f5fcc`) · **Gate:** `bun run repo:check` green · **Single phase — everything ships together** (engine, scan, UI hint, docs are one behavior change; a partial ship would let the dashboard lie in between)
 
 ## Phase 1 — `.mcp.json` toggle goes through `.claude/settings.json`
 
