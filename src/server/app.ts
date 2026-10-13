@@ -3,7 +3,6 @@ import { resolve } from 'node:path';
 import { dispatchAction } from '../actions/index.ts';
 import { runScript } from '../actions/script-run.ts';
 import { scanHarness } from '../scan/index.ts';
-import { corsPreflight, withCors } from './cors.ts';
 
 function json(status: number, body: ApiBody): Response {
   return new Response(JSON.stringify(body), {
@@ -15,16 +14,13 @@ function json(status: number, body: ApiBody): Response {
 /**
  * Pure request handler (no sockets) — tests call it with `new Request('http://127.0.0.1/...')`.
  * API-only since spec 2026-10-11: routes are GET /api/snapshot · POST /api/action ·
- * POST /api/run · OPTIONS → 204 · anything else → 404 (the UI lives on the hosted site).
- * CORS: kept for the local dev proxy (`bun run dev` → engine on another port).
+ * POST /api/run · anything else → 404 (the UI lives on the hosted site). The OPTIONS/CORS
+ * preflight died with the offline fallback (spec 2026-10-12) — the agent path speaks relay
+ * frames, not HTTP, and no browser calls the engine directly anymore.
  */
 export function createApp(rootInput: string): (req: Request) => Response | Promise<Response> {
   const rootAbs = resolve(rootInput);
-
-  return async (req: Request): Promise<Response> => {
-    if (req.method === 'OPTIONS') { return corsPreflight(); }
-    return withCors(await route(req, rootAbs));
-  };
+  return async (req: Request): Promise<Response> => route(req, rootAbs);
 }
 
 async function route(req: Request, rootAbs: string): Promise<Response> {

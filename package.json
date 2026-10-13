@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
-  "description": "Panoramic agent-harness dashboard: snapshot pipeline + single-file app + local server for visualizing and managing harness elements",
+  "description": "Panoramic agent-harness dashboard: hosted web UI + headless local agent for visualizing and managing any agent harness over an E2E-encrypted relay",
   "license": "MIT",
   "scripts": {
     "pull": "bun scripts/pull.ts",

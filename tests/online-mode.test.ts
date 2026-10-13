@@ -31,7 +31,7 @@ describe('relayOverride', () => {
 
   test('rejects missing, empty and non-ws values', () => {
     expect(relayOverride('')).toBeNull();
-    expect(relayOverride('?mode=online')).toBeNull();
+    expect(relayOverride('?x=1')).toBeNull();
     expect(relayOverride('?relay=')).toBeNull();
     expect(relayOverride('?relay=http://x')).toBeNull();
     expect(relayOverride('?relay=javascript:alert(1)')).toBeNull();

@@ -25,7 +25,7 @@ The hosted site holds the dashboard and the harness picker; a headless local age
 | Every machine runs its own copy of the code → version drift | One artifact: a single deploy gives every browser the latest UI on the next reload — nothing to install or update anywhere |
 | Loopback port conflicts (`7399` occupied, "port in use", firewall prompts) | No local port and no window at all — exactly one headless terminal process |
 | Local server dies → everything dies (closed terminal, reboot) | Self-healing: the agent reconnects with backoff, rooms live 24h idle, the UI reconnects and shows an explicit "agent disconnected" banner |
-| Several delivery modes to maintain (desktop app + `file://` embedded build + local server) | One web bundle (the local fetch path survives only as a fallback for loopback/file origins) |
+| Several delivery modes to maintain (desktop app + `file://` embedded build + local server) | One web bundle — every origin, loopback included, boots the same online path; no local fetch fallback exists |
 | Updating the UI meant restarting the local process | Deploying never disturbs the running agent; UI and engine evolve independently |
 
 ## Advantages a 100% offline design never had

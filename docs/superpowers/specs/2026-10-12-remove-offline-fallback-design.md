@@ -1,6 +1,6 @@
 # Remove Offline Fallback — Design
 
-**Date:** 2026-10-12 · **Status:** approved (2026-10-12 — design approved in chat; implementation pending) · **Scope:** harness-manager repo only
+**Date:** 2026-10-12 · **Status:** implemented (2026-10-12 — Phase 1 `a4cf3c4` · Phase 2 = the next commit in this series) · **Scope:** harness-manager repo only
 **Amends:** `2026-10-11-web-picker-agent-design.md` — that pivot deleted all offline UI but kept the local fetch path as a loopback/file fallback; this spec removes that fallback. `server.ts` (API-only diagnostic) survives untouched.
 
 ## 1. Problem
