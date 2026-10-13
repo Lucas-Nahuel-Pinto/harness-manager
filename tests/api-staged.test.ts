@@ -1,5 +1,5 @@
 import type { ApiBody } from '../src/actions/types.ts';
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, test } from 'bun:test';
@@ -110,6 +110,39 @@ describe('POST /api/action — staged mcp-toggle', () => {
     const response = await jsonPost('/api/action', '{not json');
     expect(response.status).toBe(400);
     expect((await body(response)).error).toBe('bad_json');
+  });
+});
+
+describe('POST /api/action — staged mcp-toggle on .mcp.json', () => {
+  const payload = { configFile: '.mcp.json', name: 'context7', enable: false };
+
+  test('stage 1 diffs .claude/settings.json and touches nothing', async () => {
+    const before = readFileSync(join(root, '.mcp.json'), 'utf8');
+
+    const response = await jsonPost('/api/action', { kind: 'mcp-toggle', payload });
+    expect(response.status).toBe(200);
+    const parsed = await body(response);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.stage).toBe('confirm');
+    expect(parsed.diff).toContain('--- a/.claude/settings.json');
+    expect(parsed.diff).toContain('+++ b/.claude/settings.json');
+    expect(readFileSync(join(root, '.mcp.json'), 'utf8')).toBe(before);
+    expect(existsSync(join(root, '.claude', 'settings.json'))).toBe(false);
+  });
+
+  test('stage 2 creates the settings file (and its directory) and flips the snapshot', async () => {
+    rmSync(join(root, '.claude'), { recursive: true, force: true }); // prove the write creates the dir
+
+    const response = await jsonPost('/api/action', { kind: 'mcp-toggle', payload, confirm: true });
+    expect(response.status).toBe(200);
+    const parsed = await body(response);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.snapshot) { throw new Error('snapshot missing'); }
+    expect(parsed.snapshot.mcps.find(mcp => mcp.name === 'context7')?.enabled).toBe(false);
+    expect(parsed.snapshot.mcps.find(mcp => mcp.name === 'tavily')?.enabled).toBe(true); // opencode entry untouched
+
+    const applied = readFileSync(join(root, '.claude', 'settings.json'), 'utf8');
+    expect(applied).toContain('"context7"');
   });
 });
 

@@ -1,6 +1,6 @@
 import type { HarnessSnapshot } from '../types.ts';
 import { randomBytes } from 'node:crypto';
-import { renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { scanHarness } from '../scan/index.ts';
 
@@ -13,6 +13,7 @@ export interface ApplyResult {
 
 /** Write temp file in the SAME directory then rename over the target (never a partial write). */
 export function atomicWrite(absPath: string, content: string): void {
+  mkdirSync(dirname(absPath), { recursive: true }); // create-file actions (e.g. .claude/settings.json)
   const tmp = join(dirname(absPath), `.harness-manager-${basename(absPath)}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`);
   writeFileSync(tmp, content, 'utf8');
   try {

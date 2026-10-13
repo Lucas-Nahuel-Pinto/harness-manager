@@ -4,7 +4,7 @@ import { runStagedAction } from '../refresh.ts';
 import { actionsEnabled, actionsHint } from '../serve.ts';
 import { getState, select } from '../state.ts';
 
-const CLAUDE_HINT = 'Claude Code no aplica "enabled" en .mcp.json — el flag solo surte efecto en opencode.jsonc';
+const CLAUDE_HINT = 'Claude Code ignora "enabled" en .mcp.json — el toggle escribe disabledMcpjsonServers en .claude/settings.json, que sí respeta';
 
 export function renderMcpEnv(container: HTMLElement): void {
   const state = getState();
@@ -18,7 +18,7 @@ export function renderMcpEnv(container: HTMLElement): void {
     const canAct = actionsEnabled();
     const toggle = `<button class="action mcp-toggle" data-toggle-mcp="${escapeHtml(mcp.id)}"${canAct ? '' : ' disabled'}${canAct ? '' : ` title="${escapeHtml(actionsHint())}"`}>${mcp.enabled ? 'Deshabilitar' : 'Habilitar'}</button>`;
     const hint = mcp.configFile === '.mcp.json'
-      ? `<span class="mcp-hint" title="${escapeHtml(CLAUDE_HINT)}">Claude Code no lee <code>enabled</code> aquí</span>`
+      ? `<span class="mcp-hint" title="${escapeHtml(CLAUDE_HINT)}">El toggle escribe <code>.claude/settings.json</code></span>`
       : '';
     return `
       <div class="mcp-cell">

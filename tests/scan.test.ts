@@ -1,3 +1,5 @@
+import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'bun:test';
 import { scanHarness } from '../src/scan/index.ts';
@@ -97,5 +99,23 @@ describe('scanHarness', () => {
     const { snapshot, error } = await scanHarness(join(FIXTURES, 'empty-harness'));
     expect(snapshot).toBeNull();
     expect(error).toContain('empty scan');
+  });
+
+  test('.claude/settings.json disables .mcp.json entries; broken settings only warn', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'hm-scan-claude-'));
+    cpSync(join(FIXTURES, 'mini-harness'), tmp, { recursive: true });
+    mkdirSync(join(tmp, '.claude'), { recursive: true });
+    writeFileSync(join(tmp, '.claude', 'settings.json'), '{\n  "disabledMcpjsonServers": ["context7"]\n}\n');
+
+    const { snapshot, error } = await scanHarness(tmp);
+    expect(error).toBeNull();
+    if (!snapshot) { throw new Error('snapshot missing'); }
+    expect(snapshot.mcps.find(m => m.name === 'context7')?.enabled).toBe(false); // .mcp.json entry
+    expect(snapshot.mcps.find(m => m.name === 'tavily')?.enabled).toBe(true); // opencode.jsonc untouched
+
+    writeFileSync(join(tmp, '.claude', 'settings.json'), '{broken');
+    const broken = await scanHarness(tmp);
+    expect(broken.snapshot?.mcps.find(m => m.name === 'context7')?.enabled).toBe(true); // state falls back
+    expect(broken.snapshot?.meta.warnings.some(w => w.includes('.claude/settings.json'))).toBe(true);
   });
 });

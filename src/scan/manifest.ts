@@ -38,6 +38,9 @@ export const CONVENTION = {
     { dir: '.claude/agents', host: 'claude' as const },
   ],
   mcpFiles: ['opencode.jsonc', '.mcp.json'],
+  /** Claude Code's project settings — where disabledMcpjsonServers lives (spec 2026-10-13). */
+  claudeSettings: '.claude/settings.json',
+  claudeDisabledServers: 'disabledMcpjsonServers',
   envExample: '.env.example',
   envFile: '.env',
   registry: '.claude/skills/REGISTRY.md',

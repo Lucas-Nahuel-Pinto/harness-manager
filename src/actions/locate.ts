@@ -40,7 +40,8 @@ export function skipTrivia(text: string, index: number): number {
   return i;
 }
 
-function readString(text: string, start: number): number {
+/** Read a quoted string from `start`; returns the offset after the closing quote, or -1. */
+export function readString(text: string, start: number): number {
   let i = start + 1;
   while (i < text.length) {
     const ch = text[i];
@@ -127,4 +128,17 @@ export function locatePath(text: string, path: string[]): KeyLoc | null {
   if (start >= text.length) { return null; }
   scanValue(state, start, [], 0);
   return state.found;
+}
+
+/**
+ * End offset (exclusive) of the root `{ ... }` object, or null when the root is not an object
+ * or the text is malformed. Lets root-level edits (e.g. `.claude/settings.json` keys) reuse the
+ * same comment/string-aware scanner as `locatePath`.
+ */
+export function rootEnd(text: string): number | null {
+  const state: ScanState = { text, target: [], found: null };
+  const start = skipTrivia(text, 0);
+  if (start >= text.length || text[start] !== '{') { return null; }
+  const end = scanValue(state, start, [], 0);
+  return end === -1 ? null : end;
 }

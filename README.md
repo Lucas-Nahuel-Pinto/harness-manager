@@ -124,9 +124,12 @@ compute diff → UI shows unified diff → user confirms → atomic write (temp 
 - **No local UI**: there is nothing local to harden — the bundle embeds no harness data, and the API-only diagnostic engine never serves HTML.
 - **Structured errors**: the API returns `{ error, detail }`, the UI toasts, and partial writes never happen.
 
-### Known limitation — MCP toggle vs Claude Code
+### MCP toggle semantics
 
-Toggling an MCP writes `"enabled": false` (opencode semantics) into `opencode.jsonc` / `.mcp.json`. **Claude Code ignores the `enabled` key in `.mcp.json`** (flagged during Phase 5): a disabled MCP still loads in Claude Code until it is removed from the file or the session config. OpenCode honors `enabled`. The toggle is therefore fully effective on OpenCode harnesses and display-only for Claude Code consumers.
+- `opencode.jsonc` → the toggle writes `"enabled": false` into the entry; OpenCode honors it in place.
+- `.mcp.json` → Claude Code has no `enabled` key in that schema and ignores it, so the toggle writes the server name into `disabledMcpjsonServers` of `.claude/settings.json` — the mechanism Claude Code actually honors (a rejection there beats any enable list). The file/key is created on demand and every edit is surgical: comments and formatting survive, and re-enabling removes the key again when the array empties (spec `2026-10-13-claude-mcp-disabled-servers-design.md`).
+- A legacy `"enabled": false` marker inside a `.mcp.json` entry (written before this mechanism existed) still reads as disabled and is stripped on the next enable.
+- The dashboard's `enabled` state is computed from both sources, so what you see is what Claude Code (or OpenCode) will actually do.
 
 ## Development
 

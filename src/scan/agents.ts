@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { asString, parseFrontmatter } from './frontmatter.ts';
 import { parseJsonc } from './jsonc.ts';
+import { CONVENTION } from './manifest.ts';
 
 function rel(root: string, path: string): string {
   return relative(root, path).split(sep).join('/');
@@ -85,6 +86,9 @@ export function readMainModel(root: string, file: string, jsonPath: string, warn
 
 export function scanMcps(root: string, mcpFiles: string[], warnings: string[]): McpEl[] {
   const out: McpEl[] = [];
+  // Claude Code ignores the entry-level `enabled` key in .mcp.json and honors
+  // disabledMcpjsonServers in .claude/settings.json instead (spec 2026-10-13)
+  const claudeDisabled = mcpFiles.includes('.mcp.json') ? readClaudeDisabledServers(root, warnings) : null;
 
   for (const configFile of mcpFiles) {
     const path = join(root, configFile);
@@ -105,8 +109,10 @@ export function scanMcps(root: string, mcpFiles: string[], warnings: string[]): 
         id: `mcp:${configFile}:${name}`,
         name,
         configFile,
-        // opencode honors `enabled: false` in-place; anything else counts as enabled
-        enabled: !def || typeof def !== 'object' || (def as { enabled?: unknown }).enabled !== false,
+        // opencode honors `enabled: false` in-place (legacy marker for .mcp.json); Claude Code
+        // honors disabledMcpjsonServers — a server is off when EITHER source says so
+        enabled: (!def || typeof def !== 'object' || (def as { enabled?: unknown }).enabled !== false)
+          && !(configFile === '.mcp.json' && claudeDisabled?.has(name) === true),
         envRefs: collectEnvRefs(def),
       });
     }
@@ -114,6 +120,30 @@ export function scanMcps(root: string, mcpFiles: string[], warnings: string[]): 
 
   out.sort((a, b) => a.name.localeCompare(b.name) || a.configFile.localeCompare(b.configFile));
   return out;
+}
+
+/** Names Claude Code rejects via `.claude/settings.json`; null when the file is absent/broken (warned). */
+function readClaudeDisabledServers(root: string, warnings: string[]): Set<string> | null {
+  const file = CONVENTION.claudeSettings;
+  const path = join(root, file);
+  if (!existsSync(path)) { return null; }
+
+  const parsed = parseJsonc<Record<string, unknown>>(readFileSync(path, 'utf8'));
+  if (!parsed.value) {
+    warnings.push(`${file}: ${parsed.error}`);
+    return null;
+  }
+  const list = parsed.value[CONVENTION.claudeDisabledServers];
+  if (list === undefined) { return null; }
+  if (!Array.isArray(list)) {
+    warnings.push(`${file}: ${CONVENTION.claudeDisabledServers} no es un array`);
+    return null;
+  }
+  const names = list.filter((item): item is string => typeof item === 'string');
+  if (names.length !== list.length) {
+    warnings.push(`${file}: ${CONVENTION.claudeDisabledServers} contiene entradas que no son strings`);
+  }
+  return new Set(names);
 }
 
 function collectEnvRefs(value: unknown, found = new Set<string>()): string[] {
