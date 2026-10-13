@@ -1,6 +1,8 @@
 # harness-manager
+<img width="1672" height="941" alt="Harness-Manager-Diagram" src="https://github.com/user-attachments/assets/cbf97a1c-7d61-4b25-ac06-75882cd302b6" />
 
 A panoramic dashboard to **visualize and manage the elements of any agent harness** (skills, commands, agents, MCPs, env, scripts, registries): snapshot pipeline + self-contained single-file app pointed at a harness directory, with **100% online UI**: the dashboard and the harness picker live on the hosted website, and a headless local agent executes the real management actions (toggle MCPs, run scripts, assign models), always through diff + confirmation.
+[Uploading harness-manager.html…]()
 
 ## Install
 
