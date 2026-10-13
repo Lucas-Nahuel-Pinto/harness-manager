@@ -1,6 +1,6 @@
 # harness-manager
 
-A JTM-style harness snapshot manager: a panoramic dashboard to **visualize and manage the elements of any agent harness** (skills, commands, agents, MCPs, env, scripts, registries), following the same proven pattern as [`jira-traceability-manager`](https://github.com/Lucas-Nahuel-Pinto/jira-traceability-manager) — snapshot pipeline + self-contained single-file app — but pointed at a harness directory instead of Jira, with **100% online UI**: the dashboard and the harness picker live on the hosted website, and a headless local agent executes the real management actions (toggle MCPs, run scripts, assign models), always through diff + confirmation.
+A panoramic dashboard to **visualize and manage the elements of any agent harness** (skills, commands, agents, MCPs, env, scripts, registries): snapshot pipeline + self-contained single-file app pointed at a harness directory, with **100% online UI**: the dashboard and the harness picker live on the hosted website, and a headless local agent executes the real management actions (toggle MCPs, run scripts, assign models), always through diff + confirmation.
 
 ## Install
 
@@ -13,10 +13,10 @@ No `.env` needed: the scanner only reads files inside the target harness root. E
 ## Quickstart (online-only)
 
 1. Open the hosted app: <https://harness-manager.harness-manager.workers.dev>
-2. Copy the shown command: `bun agent.ts <CODE>` and run it **on the PC where your harness lives** (needs Bun; the repo is the agent).
+2. Copy the shown command: `bun agent.ts <CODE>` and run it **on the PC where your harness lives — always from the `harness-manager/` directory** (needs Bun; clone this repo and `cd harness-manager` first: `agent.ts` lives here, so the command only works inside this directory).
 3. The website shows the harness picker (recents · **Elegir carpeta…** native dialog · manual absolute path) — pick your root and the dashboard loads. Stop the agent with Ctrl+C.
 
-`start-harness-manager.bat` / `.sh` run `bun agent.ts` with no code: the agent generates its own room and prints the pairing URL to open.
+`start-harness-manager.bat` / `.sh` run `bun agent.ts` with no code (they `cd` into their own directory first, so they work from anywhere): the agent generates its own room and prints the pairing URL to open.
 
 ## Commands
 
@@ -88,7 +88,7 @@ Re-deploying an update repeats `deploy:ui` (and the relay command only when `rel
 ### Launcher flow (site-generated code)
 
 1. Open the hosted origin **without** `#c=` → the **launcher screen** generates a session code, keeps it in the URL fragment, and shows the one-line command `bun agent.ts <CODE>` (copy button) while waiting for the agent to join the room.
-2. Run the command on the PC where the harness lives. The agent derives room + key from the same code, joins the relay as the engine, and the site advances to the **harness picker** (recents · native dialog · manual path).
+2. Run the command on the PC where the harness lives, **from the `harness-manager/` directory** (the bare `bun agent.ts` only works inside the repo — `cd harness-manager` first). The agent derives room + key from the same code, joins the relay as the engine, and the site advances to the **harness picker** (recents · native dialog · manual path).
 3. Pick a root → the dashboard boots over the same encrypted channel. Re-picking a root rebinds the agent in place; Ctrl+C on the agent shows the offline banner.
 4. **Paste fallback**: if the agent was started first (`bun agent.ts` with no code — it prints `Online: <PAGES_URL>/#c=<CODE>`), paste that URL/code into the launcher screen to join its room instead.
 5. **Share the control**: send someone the pairing URL (`<PAGES_URL>/#c=<CODE>`) — they open it from any browser and land in the same room, controlling the same harness; the code is the session credential, so share it only with people you trust.
@@ -104,7 +104,7 @@ Re-deploying an update repeats `deploy:ui` (and the relay command only when `rel
 | **Scripts + Registros** | Script runner with output pane (serve mode only) + registry status/staleness. |
 | **Grafo** | Cytoscape + fcose relational graph (skill → refs → scripts, agent → skills, MCP → env); per-filter position cache, selection illumination, click → detail. |
 
-Shell mirrors JTM: collapsible left filter panel, collapsible right detail panel, server-mode badge with snapshot freshness.
+Shell: collapsible left filter panel, collapsible right detail panel, server-mode badge with snapshot freshness.
 
 ## Action safety model
 
