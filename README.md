@@ -26,7 +26,7 @@ No `.env` needed: the scanner only reads files inside the target harness root. E
 | `bun run build:online` | UI build for the hosted origin → `dist-online/` (no embedded snapshot, "esperando motor" shell) |
 | `bun run pull` | Scan harness root → `data/harness.json` (ajv-validated, atomic write, fail-safe) — diagnostic CLI |
 | `bun run engine` | API-only loopback diagnostic (`server.ts`, dynamic port, NO UI) — local dev/testing without the relay |
-| `bun run dev` | Vite dev server; `/api` proxied to the engine at `127.0.0.1:7399` (start `bun run engine --port 7399` first) |
+| `bun run dev` | Vite dev server for the online UI — pair it with `relay:dev` (see Development); no `/api` proxy anymore |
 | `bun test` | Test suite |
 | `bun run types:check` | TypeScript strict check (`tsc --noEmit`) |
 | `bun run lint` / `bun run lint:fix` | ESLint (`@antfu/eslint-config`) |
@@ -129,7 +129,7 @@ Toggling an MCP writes `"enabled": false` (opencode semantics) into `opencode.js
 ## Development
 
 - `window.__hmGraph` — test hook exposed by the Grafo tab: `{ nodes, first() }` where `nodes` is the visible node count of the last update and `first()` returns the first visible node id + canvas-relative position (drives synthetic click tests).
-- Local dev loop: `bun run engine --port 7399` + `bun run dev` — vite proxies `/api` to the engine; test the full online flow locally with `bun run relay:dev` + `bun run dev` opening `http://localhost:5173/?relay=ws://127.0.0.1:8788`.
+- Local dev loop (the only loop — there is no local fetch path anymore, spec 2026-10-12): `bun run relay:dev` + `bun run dev` → open `http://localhost:5173/?relay=ws://127.0.0.1:8788` → the launcher generates the command → `bun agent.ts <CODE> --relay ws://127.0.0.1:8788` — the same flow production runs.
 - `data/harness.json` is **generated** by `bun run pull` (diagnostic output — no embedded consumer anymore); never hand-edit.
 - Snapshot schema: `harness.schema.json` (`schemaVersion: 1`, validated by ajv on every pull).
 

@@ -1,5 +1,4 @@
 import type { AgentStatus } from './online/launcher-screen.ts';
-import type { UiMode } from './online/mode.ts';
 import type { TransportStatus } from './online/transport.ts';
 import type { EnvStatus, GraphKind, TabId } from './state.ts';
 import type { SkillTier } from './types.ts';
@@ -69,7 +68,7 @@ const CONN_TONE: Record<TransportStatus, string> = {
 
 injectStyles();
 
-function bootApp(mode: UiMode): void {
+function bootApp(): void {
   const app = document.getElementById('app') as HTMLElement;
   app.innerHTML = `
   <header class="topbar">
@@ -79,7 +78,7 @@ function bootApp(mode: UiMode): void {
     <span class="spacer"></span>
     <span id="warn-slot"></span>
     <span class="conn-badge" id="conn-badge" hidden></span>
-    <span class="badge-ro serve" id="mode-badge">${mode === 'online' ? 'modo online · escritura' : 'modo local · escritura'}</span>
+    <span class="badge-ro serve" id="mode-badge">modo online · escritura</span>
   </header>
   <div class="conn-banner" id="conn-banner" hidden>Sin conexión con el motor — reintentando…</div>
   <nav class="tabs" id="tabs"></nav>
@@ -269,10 +268,8 @@ function bootApp(mode: UiMode): void {
   window.addEventListener('resize', resizeGraph);
 
   subscribe(render);
-  if (mode === 'online') {
-    startOnlineTransport();
-    subscribe(renderFreshness); // the online shell starts empty — refresh the "Esperando motor…" text on every change
-  }
+  startOnlineTransport();
+  subscribe(renderFreshness); // the online shell starts empty — refresh the "Esperando motor…" text on every change
   render();
   renderFreshness();
   window.setInterval(renderFreshness, 60_000);
@@ -316,15 +313,16 @@ function startOnlineTransport(): void {
 }
 
 /**
- * Hosted boot WITH a `#c=` fragment: probe the room before mounting the dashboard. A dead
- * session (agent gone, expired room) must fall back to the launcher screen — same code, so
- * `bun agent.ts <CODE>` rejoins the room — instead of an empty "Esperando motor…" dashboard.
+ * Boot WITH a `#c=` fragment (every origin, spec 2026-10-12): probe the room before mounting
+ * the dashboard. A dead session (agent gone, expired room) must fall back to the launcher
+ * screen — same code, so `bun agent.ts <CODE>` rejoins the room — instead of an empty
+ * "Esperando motor…" dashboard.
  */
 async function resumeOnlineSession(): Promise<void> {
   const app = document.getElementById('app');
   if (app) { app.innerHTML = '<div class="pairing"><p class="pairing-hint">Reconectando tu sesión…</p></div>'; }
   const code = parseCodeFromHash(window.location.hash);
-  if (code === null) { bootApp('online'); return; } // detectMode already validated — defensive
+  if (code === null) { bootApp(); return; } // detectMode already validated — defensive
   const probe = new WSTransport({ relayUrl: relayOverride(window.location.search) ?? RELAY_URL, code });
   let status: AgentStatus | null = null;
   try {
@@ -333,21 +331,17 @@ async function resumeOnlineSession(): Promise<void> {
   finally {
     probe.close();
   }
-  if (status?.state === 'running') { bootApp('online'); }
-  else { renderLauncherScreen(() => { bootApp('online'); }); } // picker state or dead room → launcher (same #c=)
+  if (status?.state === 'running') { bootApp(); }
+  else { renderLauncherScreen(() => { bootApp(); }); } // picker state or dead room → launcher (same #c=)
 }
 
-// Mode detection: local/file origins keep the historical fetch path (embedded build unchanged);
-// hosted origins without a valid #c= fragment land on the launcher screen (site-generated code,
-// bootstrap command, web picker — spec 2026-10-11); with a #c= fragment the agent is probed
-// first so dead sessions fall back to the launcher instead of a zombie dashboard.
-const mode = detectMode(window.location.origin, window.location.hash, window.location.search);
-if (mode === 'online-unpaired') {
-  renderLauncherScreen(() => { bootApp('online'); });
-}
-else if (mode === 'online') {
-  void resumeOnlineSession();
+// Boot dispatch — ONE set of rules for every origin (spec 2026-10-12): without a valid #c=
+// fragment the launcher screen owns the flow (site-generated code, bootstrap command, web
+// picker — spec 2026-10-11); with a #c= fragment the agent is probed first so dead sessions
+// fall back to the launcher instead of a zombie dashboard.
+if (detectMode(window.location.hash) === 'online-unpaired') {
+  renderLauncherScreen(() => { bootApp(); });
 }
 else {
-  bootApp(mode);
+  void resumeOnlineSession();
 }

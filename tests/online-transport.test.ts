@@ -6,7 +6,7 @@ import { startDevRelay } from '../relay/dev.ts';
 import { deriveKey } from '../src/online/crypto.ts';
 import { generateCode } from '../src/online/pairing.ts';
 import { startRelayClient } from '../src/online/relay-client.ts';
-import { FetchTransport, WSTransport } from '../src/online/transport.ts';
+import { WSTransport } from '../src/online/transport.ts';
 import { createApp } from '../src/server/app.ts';
 
 const FIXTURE = resolve(import.meta.dir, 'fixtures', 'mini-harness');
@@ -297,45 +297,4 @@ describe('WSTransport ↔ dev relay integration', () => {
     expect(await rejectsWith(transport.api('GET', '/api/snapshot'), 'conexión perdida')).toBe(true);
     relay.stop();
   }, 10000);
-});
-
-describe('FetchTransport delegation (the local seam, byte-identical)', () => {
-  test('GET/POST keep the URL join, JSON body headers and non-JSON error', async () => {
-    const received: Array<{ method: string, path: string, contentType: string | null, body: unknown }> = [];
-    const server = Bun.serve({
-      hostname: '127.0.0.1',
-      port: 0,
-      async fetch(request) {
-        const { pathname } = new URL(request.url);
-        if (pathname === '/api/not-json') {
-          return new Response('plain text', { status: 502, statusText: 'Bad Gateway' });
-        }
-        received.push({
-          method: request.method,
-          path: pathname,
-          contentType: request.headers.get('content-type'),
-          body: request.method === 'POST' ? await request.json() : null,
-        });
-        return new Response(JSON.stringify({ ok: true, path: pathname }), {
-          headers: { 'content-type': 'application/json' },
-        });
-      },
-    });
-    try {
-      const transport = new FetchTransport(() => `http://127.0.0.1:${server.port}`);
-      expect(transport.status).toBe('online');
-      expect(await transport.api<{ ok: boolean, path: string }>('GET', '/api/snapshot')).toEqual({ ok: true, path: '/api/snapshot' });
-      expect(await transport.api<{ ok: boolean, path: string }>('POST', '/api/action', { kind: 'mcp-toggle' })).toEqual({ ok: true, path: '/api/action' });
-      expect(received).toEqual([
-        { method: 'GET', path: '/api/snapshot', contentType: null, body: null },
-        { method: 'POST', path: '/api/action', contentType: 'application/json', body: { kind: 'mcp-toggle' } },
-      ]);
-      expect(await rejectsWith(transport.api('GET', '/api/not-json'), 'respuesta no JSON (502 Bad Gateway)')).toBe(true);
-      transport.onStatus(() => { throw new Error('no debe notificar'); });
-      transport.close();
-    }
-    finally {
-      await server.stop(true);
-    }
-  });
 });

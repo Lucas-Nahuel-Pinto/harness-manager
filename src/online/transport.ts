@@ -1,6 +1,6 @@
 /**
- * API transport seam for the UI: `FetchTransport` is today's fetch path moved verbatim (local
- * behavior byte-identical); `WSTransport` speaks the E2E relay protocol (spec §6) for online mode.
+ * API transport seam for the UI: `WSTransport` speaks the E2E relay protocol (spec §6) and is
+ * the only implementation — the local `FetchTransport` fallback is gone (spec 2026-10-12).
  */
 
 import type { ReqFrame, ResFrame } from './protocol.ts';
@@ -15,39 +15,6 @@ export interface Transport {
   readonly status: TransportStatus
   onStatus: (cb: (status: TransportStatus) => void) => void
   close: () => void
-}
-
-/** Today's fetch helper, relocated: same URL join, same JSON parse, same non-JSON error. */
-export class FetchTransport implements Transport {
-  readonly status: TransportStatus = 'online';
-
-  constructor(private readonly base: () => string) {}
-
-  onStatus(_cb: (status: TransportStatus) => void): void {
-    // fetch has no connection lifecycle — per-request failures already surface as rejections
-  }
-
-  async api<T>(method: ApiMethod, path: string, body?: unknown, _timeoutMs?: number): Promise<T> {
-    let init: RequestInit | undefined;
-    if (method === 'POST') {
-      init = {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      };
-    }
-    const response = await fetch(`${this.base()}${path}`, init);
-    try {
-      return await response.json() as T;
-    }
-    catch {
-      throw new Error(`respuesta no JSON (${response.status} ${response.statusText})`);
-    }
-  }
-
-  close(): void {
-    // nothing to tear down
-  }
 }
 
 export interface WSTransportOptions {
