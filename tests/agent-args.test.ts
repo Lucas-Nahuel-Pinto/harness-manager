@@ -3,7 +3,7 @@ import { parseAgentArgv } from '../src/agent/args.ts';
 import { RELAY_URL } from '../src/online/pairing.ts';
 
 const CODE = 'ABCDEFGHJKMNPQRSTVWXYZ2345';
-const PAIRING_URL = `https://harness-manager.harness-manager.workers.dev/#c=${CODE}`;
+const PAIRING_URL = `https://harness-manager.lucas-pinto.workers.dev/#c=${CODE}`;
 
 describe('parseAgentArgv', () => {
   test('no args → agent-generated flow (null code, production relay)', () => {

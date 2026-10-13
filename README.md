@@ -12,7 +12,7 @@ No `.env` needed: the scanner only reads files inside the target harness root. E
 
 ## Quickstart (online-only)
 
-1. Open the hosted app: <https://harness-manager.harness-manager.workers.dev>
+1. Open the hosted app: <https://harness-manager.lucas-pinto.workers.dev>
 2. Copy the shown command: `bun agent.ts <CODE>` and run it **on the PC where your harness lives — always from the `harness-manager/` directory** (needs Bun; clone this repo and `cd harness-manager` first: `agent.ts` lives here, so the command only works inside this directory).
 3. The website shows the harness picker (recents · **Elegir carpeta…** native dialog · manual absolute path) — pick your root and the dashboard loads. Stop the agent with Ctrl+C.
 
@@ -78,7 +78,7 @@ The agent always binds outbound-only connections to the relay — no inbound por
 
 ```bash
 bunx wrangler login                                # once, interactive — user-owned credentials
-bun run urls:bake https://harness-manager.harness-manager.workers.dev wss://harness-manager-relay.harness-manager.workers.dev
+bun run urls:bake https://harness-manager.lucas-pinto.workers.dev wss://harness-manager-relay.lucas-pinto.workers.dev
 bunx wrangler deploy -c relay/wrangler.toml        # relay Worker + Durable Object (dumb relay, no secrets)
 bun run deploy:ui                                  # build:online + wrangler deploy → hosted UI
 ```

@@ -9,7 +9,7 @@
 
 ```bash
 # 1 — open the hosted app (site-generated flow):
-#     https://harness-manager.harness-manager.workers.dev
+#     https://harness-manager.lucas-pinto.workers.dev
 # 2 — copy the shown command `bun agent.ts <CODE>` and run it on the PC that holds the harness
 # 3 — pick the root ON THE WEBSITE (recents / native dialog / manual path)
 
@@ -122,7 +122,7 @@ Applies to the agent flow (web picker driving `bun agent.ts`).
 
 | # | Check | Expected observation | Done | Notes |
 | --- | --- | --- | --- | --- |
-| L1 | Agent-generated flow | `bun agent.ts` (no code) prints `Online: https://harness-manager.harness-manager.workers.dev/#c=<CODE>` and the "agente en pie" line; Ctrl+C stops it | [x] | |
+| L1 | Agent-generated flow | `bun agent.ts` (no code) prints `Online: https://harness-manager.lucas-pinto.workers.dev/#c=<CODE>` and the "agente en pie" line; Ctrl+C stops it | [x] | |
 | L2 | Paste fallback | Opening the printed URL (or pasting the code into the launcher screen) joins the room and shows the picker | [x] | |
 | L3 | No local UI | While the agent runs, nothing listens on any local port (only outbound WS to the relay); no window opens | [x] | |
 | L4 | Invalid code | `bun agent.ts NOT-A-CODE` exits 1 with the usage message | [x] | |

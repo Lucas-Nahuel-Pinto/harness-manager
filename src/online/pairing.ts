@@ -3,10 +3,10 @@
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
 /** Deployed hosted-UI origin (spec §11: committed constant, no secrecy). */
-export const PAGES_URL = 'https://harness-manager.harness-manager.workers.dev';
+export const PAGES_URL = 'https://harness-manager.lucas-pinto.workers.dev';
 
 /** Deployed relay Worker WS endpoint. */
-export const RELAY_URL = 'wss://harness-manager-relay.harness-manager.workers.dev';
+export const RELAY_URL = 'wss://harness-manager-relay.lucas-pinto.workers.dev';
 
 /** Encode bytes as unpadded RFC 4648 base32. */
 export function bytesToCode(bytes: Uint8Array): string {
