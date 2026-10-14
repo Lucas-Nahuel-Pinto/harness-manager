@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { getState, select, setDetailCollapsed } from '../src/state.ts';
+import { getState, select, setDetailCollapsed, toggleWarnings } from '../src/state.ts';
 
 describe('select — detail panel toggle', () => {
   beforeEach(() => {
@@ -55,5 +55,58 @@ describe('select — detail panel toggle', () => {
     select(null);
     expect(getState().selectedId).toBeNull();
     expect(getState().detailCollapsed).toBe(true);
+  });
+});
+
+describe('toggleWarnings — Alertas button panel toggle', () => {
+  beforeEach(() => {
+    select(null);
+    setDetailCollapsed(false);
+  });
+
+  test('clicking Alertas shows the alerts AND un-collapses the panel', () => {
+    setDetailCollapsed(true); // panel folded beforehand
+    toggleWarnings();
+    expect(getState().showWarnings).toBe(true);
+    expect(getState().detailCollapsed).toBe(false);
+    expect(getState().selectedId).toBeNull();
+  });
+
+  test('re-clicking Alertas with the alerts visible collapses the panel', () => {
+    toggleWarnings();
+    toggleWarnings();
+    expect(getState().showWarnings).toBe(false);
+    expect(getState().detailCollapsed).toBe(true);
+  });
+
+  test('re-clicking Alertas after the collapse re-opens the alerts', () => {
+    toggleWarnings();
+    toggleWarnings(); // collapsed
+    toggleWarnings();
+    expect(getState().showWarnings).toBe(true);
+    expect(getState().detailCollapsed).toBe(false);
+  });
+
+  test('re-click with the panel MANUALLY collapsed re-opens instead of closing', () => {
+    toggleWarnings();
+    setDetailCollapsed(true); // user folded the panel while alerts stayed on
+    toggleWarnings();
+    expect(getState().showWarnings).toBe(true);
+    expect(getState().detailCollapsed).toBe(false);
+  });
+
+  test('Alertas takes over from an open element selection', () => {
+    select('agent:opencode.jsonc');
+    toggleWarnings();
+    expect(getState().showWarnings).toBe(true);
+    expect(getState().selectedId).toBeNull();
+    expect(getState().detailCollapsed).toBe(false);
+  });
+
+  test('selecting an element hides the alerts view', () => {
+    toggleWarnings();
+    select('skill:demo');
+    expect(getState().showWarnings).toBe(false);
+    expect(getState().selectedId).toBe('skill:demo');
   });
 });

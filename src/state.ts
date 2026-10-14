@@ -80,7 +80,17 @@ export function select(selectedId: string | null): void {
 }
 
 export function toggleWarnings(): void {
-  state.showWarnings = !state.showWarnings;
+  // same toggle semantics as select(): turning warnings ON un-collapses the panel so the
+  // alerts are always visible; re-clicking while the alerts are visible collapses the panel
+  const reclickWithOpenPanel = state.showWarnings && !state.detailCollapsed;
+  if (reclickWithOpenPanel) {
+    state.showWarnings = false;
+    state.detailCollapsed = true;
+  }
+  else {
+    state.showWarnings = true;
+    state.detailCollapsed = false;
+  }
   state.selectedId = null;
   notify();
 }
