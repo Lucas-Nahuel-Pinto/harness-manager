@@ -63,11 +63,13 @@ export function setSearch(search: string): void {
 }
 
 export function select(selectedId: string | null): void {
-  // toggle-on-reclick: clicking the SAME element while the panel is open closes it; any other
-  // click selects the element AND un-collapses the panel, so details always open automatically
+  // toggle-on-reclick: clicking the SAME element while the panel is open collapses the panel
+  // entirely (selection cleared); any other click selects the element AND un-collapses the
+  // panel, so details always open automatically
   const reclickWithOpenPanel = selectedId !== null && state.selectedId === selectedId && !state.detailCollapsed;
   if (reclickWithOpenPanel) {
     state.selectedId = null;
+    state.detailCollapsed = true;
   }
   else {
     state.selectedId = selectedId;

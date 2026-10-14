@@ -12,18 +12,20 @@ describe('select — detail panel toggle', () => {
     expect(getState().selectedId).toBe('mcp:.mcp.json:context7');
   });
 
-  test('clicking the same element with the panel open closes it', () => {
+  test('clicking the same element with the panel open collapses the panel', () => {
     select('agent:opencode.jsonc');
     select('agent:opencode.jsonc');
     expect(getState().selectedId).toBeNull();
+    expect(getState().detailCollapsed).toBe(true); // the whole panel folds, not just the content
   });
 
-  test('closing by re-click keeps the panel expanded (next click shows details again)', () => {
+  test('closing by re-click collapses; the next click re-opens it with details', () => {
     select('agent:opencode.jsonc');
     select('agent:opencode.jsonc');
-    expect(getState().detailCollapsed).toBe(false);
+    expect(getState().detailCollapsed).toBe(true);
     select('agent:opencode.jsonc');
     expect(getState().selectedId).toBe('agent:opencode.jsonc');
+    expect(getState().detailCollapsed).toBe(false);
   });
 
   test('clicking another element while open switches the selection', () => {
