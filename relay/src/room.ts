@@ -44,6 +44,27 @@ export function parseJoin(text: string): JoinFrame | null {
   }
 }
 
+const PONG_FRAME = JSON.stringify({ v: 1, t: 'pong' });
+
+/**
+ * Heartbeat control frames (cleartext like join/presence): a `ping` is answered with a pong to
+ * the sender only, a `pong` from a client is swallowed (design 2026-10-15).
+ */
+function heartbeatKind(text: string): 'ping' | 'pong' | null {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) { return null; }
+    const frame = parsed as { v?: unknown, t?: unknown };
+    if (frame.v !== 1) { return null; }
+    if (frame.t === 'ping') { return 'ping'; }
+    if (frame.t === 'pong') { return 'pong'; }
+    return null;
+  }
+  catch {
+    return null;
+  }
+}
+
 function isPresenceShaped(text: string): boolean {
   try {
     const parsed: unknown = JSON.parse(text);
@@ -104,11 +125,18 @@ export class RoomLogic {
     return this.presence();
   }
 
-  /** Route one cleartext frame: ui → all engines, engine → all uis; presence-shaped or malformed input is dropped. */
+  /**
+   * Route one cleartext frame: ui → all engines, engine → all uis. A heartbeat ping answers a
+   * pong to the sender only (never forwarded cross-leg); pong-shaped, presence-shaped or
+   * malformed input is dropped.
+   */
   handleFrame(fromId: string, rawText: string): RoomOut[] {
     this.activity = Date.now();
     const member = this.members.get(fromId);
-    if (!member || isPresenceShaped(rawText) || !isForwardable(rawText)) { return []; }
+    if (!member) { return []; }
+    const heartbeat = heartbeatKind(rawText);
+    if (heartbeat === 'ping') { return [{ toId: fromId, text: PONG_FRAME }]; }
+    if (heartbeat === 'pong' || isPresenceShaped(rawText) || !isForwardable(rawText)) { return []; }
     const role = member.role === 'ui' ? 'engine' : 'ui';
     return this.targets(role, member.role === 'engine' ? fromId : undefined)
       .map(toId => ({ toId, text: rawText }));

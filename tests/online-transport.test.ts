@@ -1,3 +1,4 @@
+import type { ServerWebSocket } from 'bun';
 import type { DevRelay } from '../relay/dev.ts';
 import type { FetchHandler } from '../src/online/relay-client.ts';
 import { resolve } from 'node:path';
@@ -5,6 +6,7 @@ import { describe, expect, test } from 'bun:test';
 import { startDevRelay } from '../relay/dev.ts';
 import { deriveKey } from '../src/online/crypto.ts';
 import { generateCode } from '../src/online/pairing.ts';
+import { PING_FRAME } from '../src/online/protocol.ts';
 import { startRelayClient } from '../src/online/relay-client.ts';
 import { WSTransport } from '../src/online/transport.ts';
 import { createApp } from '../src/server/app.ts';
@@ -81,6 +83,43 @@ async function snapshotWhenReady(transport: WSTransport, deadlineMs: number): Pr
       await sleep(150);
     }
   }
+}
+
+interface RecordingRelay {
+  url: string
+  messages: () => string[]
+  sendToClient: (text: string) => void
+  stop: () => void
+}
+
+interface RecorderData {
+  id: string
+}
+
+/** Fake relay that records raw frames and never validates them — the keepalive assertions' observation point. */
+function startRecordingRelay(): RecordingRelay {
+  const messages: string[] = [];
+  let clientWs: ServerWebSocket<RecorderData> | null = null;
+  const server = Bun.serve<RecorderData>({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch(request, srv) {
+      if (srv.upgrade(request, { data: { id: crypto.randomUUID() } })) { return undefined; }
+      return new Response('recording relay (WebSocket only)', { status: 426 });
+    },
+    websocket: {
+      message(ws, message) {
+        clientWs = ws;
+        messages.push(typeof message === 'string' ? message : String(message));
+      },
+    },
+  });
+  return {
+    url: `ws://127.0.0.1:${server.port ?? 0}`,
+    messages: () => messages,
+    sendToClient: text => clientWs?.send(text),
+    stop: () => void server.stop(true),
+  };
 }
 
 describe('WSTransport ↔ dev relay integration', () => {
@@ -296,5 +335,70 @@ describe('WSTransport ↔ dev relay integration', () => {
     expect(statuses).toEqual(['online', 'offline']);
     expect(await rejectsWith(transport.api('GET', '/api/snapshot'), 'conexión perdida')).toBe(true);
     relay.stop();
+  }, 10000);
+
+  test('heartbeats flow through the real relay while snapshots stay green (design 2026-10-15)', async () => {
+    const relay = startDevRelay(0);
+    const code = generateCode();
+    const url = relayUrl(relay.port);
+    const engine = startRelayClient({
+      relayUrl: url,
+      code,
+      rootAbs: FIXTURE,
+      fetchHandler: createApp(FIXTURE),
+      onConnect: () => {},
+      onDisconnect: () => {},
+      heartbeatMs: 50, // both legs ping ~5× while the two roundtrips below run
+      log: () => {},
+    });
+    const transport = new WSTransport({ relayUrl: url, code, heartbeatMs: 50 });
+    try {
+      await waitFor(() => transport.status === 'online', 5000, 'transport online');
+      const first = await snapshotWhenReady(transport, 8000);
+      expect(first.ok).toBe(true);
+      await sleep(250); // ping → RoomLogic → pong on both legs, all frames must be ignored
+      expect(transport.status).toBe('online');
+      const second = await transport.api<{ ok: boolean }>('GET', '/api/snapshot', undefined, 3000);
+      expect(second.ok).toBe(true);
+    }
+    finally {
+      transport.close();
+      await engine.close();
+      relay.stop();
+    }
+  }, 15000);
+});
+
+describe('WSTransport heartbeat (keepalive)', () => {
+  test('the UI leg sends exact cleartext pings and stops after close()', async () => {
+    const rec = startRecordingRelay();
+    const transport = new WSTransport({ relayUrl: rec.url, code: generateCode(), heartbeatMs: 60 });
+    try {
+      await waitFor(() => rec.messages().some(m => m.includes('"join"')), 3000, 'join del ui');
+      await waitFor(() => rec.messages().filter(m => m === PING_FRAME).length >= 2, 3000, 'dos pings');
+    }
+    finally {
+      transport.close();
+    }
+    const sent = rec.messages().length;
+    await sleep(250);
+    expect(rec.messages().length).toBe(sent); // the interval died with close()
+    rec.stop();
+  }, 10000);
+
+  test('control frames injected by the relay leave the UI leg online', async () => {
+    const rec = startRecordingRelay();
+    const transport = new WSTransport({ relayUrl: rec.url, code: generateCode(), heartbeatMs: 60 });
+    try {
+      await waitFor(() => transport.status === 'online', 3000, 'online');
+      rec.sendToClient(JSON.stringify({ v: 1, t: 'ping' }));
+      rec.sendToClient(JSON.stringify({ v: 1, t: 'pong' }));
+      await sleep(200);
+      expect(transport.status).toBe('online');
+    }
+    finally {
+      transport.close();
+      rec.stop();
+    }
   }, 10000);
 });

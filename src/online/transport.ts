@@ -5,7 +5,7 @@
 
 import type { ReqFrame, ResFrame } from './protocol.ts';
 import { decryptFrame, deriveKey, encryptFrame } from './crypto.ts';
-import { decodePayload, isPresence, makeReqId, timeoutForPath } from './protocol.ts';
+import { decodePayload, HEARTBEAT_MS, isControlShaped, isPresence, makeReqId, PING_FRAME, timeoutForPath } from './protocol.ts';
 
 export type TransportStatus = 'connecting' | 'online' | 'offline';
 export type ApiMethod = 'GET' | 'POST';
@@ -25,6 +25,8 @@ export interface WSTransportOptions {
   onStatus?: (status: TransportStatus) => void
   /** Agent (engine member) presence in the room — fired on every membership change. */
   onAgentPresence?: (present: boolean) => void
+  /** Test seam — override the 25s keepalive cadence. */
+  heartbeatMs?: number
 }
 
 interface Pending {
@@ -42,18 +44,6 @@ function reconnectDelay(attempt: number): number {
   return Math.round(base * (0.75 + Math.random() * 0.5));
 }
 
-/** Cleartext control frames (`join`) and presence carry a `t` field; crypto envelopes never do. */
-function isControlShaped(text: string): boolean {
-  try {
-    const parsed: unknown = JSON.parse(text);
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) { return false; }
-    return typeof (parsed as { t?: unknown }).t === 'string';
-  }
-  catch {
-    return false;
-  }
-}
-
 export class WSTransport implements Transport {
   status: TransportStatus = 'connecting';
 
@@ -63,6 +53,7 @@ export class WSTransport implements Transport {
   private readonly derived: Promise<{ room: string, key: CryptoKey }>;
   private socket: WebSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private attempt = 0;
   private closed = false;
   /** Unknown until the first presence frame arrives (the relay broadcasts it right after join). */
@@ -187,6 +178,7 @@ export class WSTransport implements Transport {
   private handleDown(ws: WebSocket): void {
     if (ws !== this.socket) { return; } // stale duplicate (error + close for the same socket)
     this.socket = null;
+    this.stopHeartbeat();
     this.rejectAllPending(new Error('conexión perdida'));
     this.setStatus('offline');
     this.scheduleReconnect();
@@ -218,6 +210,7 @@ export class WSTransport implements Transport {
       ws.addEventListener('open', () => {
         if (this.closed || this.socket !== ws) { ws.close(); return; }
         ws.send(JSON.stringify({ v: 1, t: 'join', room, role: 'ui' }));
+        this.startHeartbeat(ws);
         this.attempt = 0;
         this.setStatus('online');
       });
@@ -229,8 +222,28 @@ export class WSTransport implements Transport {
     }
   }
 
+  /**
+   * Keepalive: a cleartext ping every HEARTBEAT_MS keeps the idle relay socket alive (design
+   * 2026-10-15). Only the socket that armed the timer may send — reconnects re-arm it.
+   */
+  private startHeartbeat(ws: WebSocket): void {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      if (this.closed || this.socket !== ws || ws.readyState !== WebSocket.OPEN) { return; }
+      ws.send(PING_FRAME);
+    }, this.options.heartbeatMs ?? HEARTBEAT_MS);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer !== null) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
   close(): void {
     this.closed = true;
+    this.stopHeartbeat();
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;

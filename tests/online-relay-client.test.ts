@@ -1,3 +1,4 @@
+import type { ServerWebSocket } from 'bun';
 import type { DevRelay } from '../relay/dev.ts';
 import type { ReqFrame, ResFrame } from '../src/online/protocol.ts';
 import type { FetchHandler } from '../src/online/relay-client.ts';
@@ -6,7 +7,7 @@ import { describe, expect, test } from 'bun:test';
 import { startDevRelay } from '../relay/dev.ts';
 import { decryptFrame, deriveKey, encryptFrame } from '../src/online/crypto.ts';
 import { generateCode, PAGES_URL, pairingUrl } from '../src/online/pairing.ts';
-import { decodePayload, isPresence } from '../src/online/protocol.ts';
+import { decodePayload, isPresence, PING_FRAME } from '../src/online/protocol.ts';
 import { startRelayClient } from '../src/online/relay-client.ts';
 import { createApp } from '../src/server/app.ts';
 
@@ -35,6 +36,43 @@ async function startRelayOn(port: number): Promise<DevRelay> {
     catch { await sleep(50); }
   }
   throw new Error(`el relay no pudo reusar el puerto ${port}`);
+}
+
+interface RecordingRelay {
+  url: string
+  messages: () => string[]
+  sendToClient: (text: string) => void
+  stop: () => void
+}
+
+interface RecorderData {
+  id: string
+}
+
+/** Fake relay that records raw frames and never validates them — the keepalive assertions' observation point. */
+function startRecordingRelay(): RecordingRelay {
+  const messages: string[] = [];
+  let clientWs: ServerWebSocket<RecorderData> | null = null;
+  const server = Bun.serve<RecorderData>({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch(request, srv) {
+      if (srv.upgrade(request, { data: { id: crypto.randomUUID() } })) { return undefined; }
+      return new Response('recording relay (WebSocket only)', { status: 426 });
+    },
+    websocket: {
+      message(ws, message) {
+        clientWs = ws;
+        messages.push(typeof message === 'string' ? message : String(message));
+      },
+    },
+  });
+  return {
+    url: `ws://127.0.0.1:${server.port ?? 0}`,
+    messages: () => messages,
+    sendToClient: text => clientWs?.send(text),
+    stop: () => void server.stop(true),
+  };
 }
 
 interface FakeUi {
@@ -330,4 +368,60 @@ describe('engine entry wiring (loopback-only diagnostic)', () => {
       await engine.waitExit();
     }
   }, 20000);
+});
+
+describe('engine heartbeat (keepalive, design 2026-10-15)', () => {
+  test('the engine leg sends exact cleartext pings and stops after close()', async () => {
+    const rec = startRecordingRelay();
+    const client = startRelayClient({
+      relayUrl: rec.url,
+      code: generateCode(),
+      rootAbs: FIXTURE,
+      fetchHandler: createApp(FIXTURE),
+      onConnect: () => {},
+      onDisconnect: () => {},
+      heartbeatMs: 60,
+      log: () => {},
+    });
+    try {
+      await waitFor(() => rec.messages().some(m => m.includes('"join"')), 5000, 'join del engine');
+      await waitFor(() => rec.messages().filter(m => m === PING_FRAME).length >= 2, 5000, 'dos pings');
+    }
+    finally {
+      await client.close();
+    }
+    const sent = rec.messages().length;
+    await sleep(250);
+    expect(rec.messages().length).toBe(sent); // the interval died with close()
+    rec.stop();
+  }, 10000);
+
+  test('injected control frames never log a discarded frame nor fire onDisconnect', async () => {
+    const rec = startRecordingRelay();
+    const logs: string[] = [];
+    const events: string[] = [];
+    const client = startRelayClient({
+      relayUrl: rec.url,
+      code: generateCode(),
+      rootAbs: FIXTURE,
+      fetchHandler: createApp(FIXTURE),
+      onConnect: () => events.push('connect'),
+      onDisconnect: () => events.push('disconnect'),
+      heartbeatMs: 60,
+      log: message => logs.push(message),
+    });
+    try {
+      await waitFor(() => events.includes('connect'), 5000, 'connect');
+      rec.sendToClient(JSON.stringify({ v: 1, t: 'ping' }));
+      rec.sendToClient(JSON.stringify({ v: 1, t: 'pong' }));
+      rec.sendToClient(JSON.stringify({ v: 1, t: 'presence', members: [] }));
+      await sleep(300);
+      expect(logs.join('\n')).not.toContain('frame descartada');
+      expect(events).toEqual(['connect']); // control frames are ignored before decryption
+    }
+    finally {
+      await client.close();
+      rec.stop();
+    }
+  }, 10000);
 });

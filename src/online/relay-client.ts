@@ -3,7 +3,7 @@
 import type { ReqFrame, ResFrame } from './protocol.ts';
 import { decryptFrame, deriveKey, encryptFrame } from './crypto.ts';
 import { PAGES_URL, pairingUrl } from './pairing.ts';
-import { decodePayload, isPresence } from './protocol.ts';
+import { decodePayload, HEARTBEAT_MS, isControlShaped, PING_FRAME } from './protocol.ts';
 
 export type FetchHandler = (req: Request) => Response | Promise<Response>;
 
@@ -20,6 +20,8 @@ export interface RelayClientOptions {
   onConnect: (pairingUrl: string) => void
   /** Fires once per lost connection — the socket loop itself never throws. */
   onDisconnect: () => void
+  /** Test seam — override the 25s keepalive cadence. */
+  heartbeatMs?: number
   log?: (msg: string) => void
 }
 
@@ -36,18 +38,6 @@ const RECONNECT_MAX_MS = 30_000;
 function reconnectDelay(attempt: number): number {
   const base = Math.min(RECONNECT_BASE_MS * 2 ** (attempt - 1), RECONNECT_MAX_MS);
   return Math.round(base * (0.75 + Math.random() * 0.5));
-}
-
-/** Join control frames are cleartext like presence; envelopes never carry a `t` field. */
-function isJoinShaped(text: string): boolean {
-  try {
-    const parsed: unknown = JSON.parse(text);
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) { return false; }
-    return (parsed as { t?: unknown }).t === 'join';
-  }
-  catch {
-    return false;
-  }
 }
 
 async function readBody(response: Response): Promise<unknown> {
@@ -83,6 +73,7 @@ export function startRelayClient(options: RelayClientOptions): RelayClient {
 
   let socket: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let attempt = 0;
   let connected = false;
   let failureLogged = false;
@@ -112,8 +103,28 @@ export function startRelayClient(options: RelayClientOptions): RelayClient {
   function handleDown(ws: WebSocket): void {
     if (ws !== socket) { return; } // stale duplicate (error + close for the same socket)
     socket = null;
+    stopHeartbeat();
     reportDown();
     scheduleReconnect();
+  }
+
+  /**
+   * Keepalive: a cleartext ping every HEARTBEAT_MS keeps the idle relay socket alive (design
+   * 2026-10-15). Only the socket that armed the timer may send — reconnects re-arm it.
+   */
+  function startHeartbeat(ws: WebSocket): void {
+    stopHeartbeat();
+    heartbeatTimer = setInterval(() => {
+      if (closed || socket !== ws || ws.readyState !== WebSocket.OPEN) { return; }
+      ws.send(PING_FRAME);
+    }, options.heartbeatMs ?? HEARTBEAT_MS);
+  }
+
+  function stopHeartbeat(): void {
+    if (heartbeatTimer !== null) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
   }
 
   async function open(): Promise<void> {
@@ -125,7 +136,7 @@ export function startRelayClient(options: RelayClientOptions): RelayClient {
       socket = ws;
 
       async function onMessage(text: string): Promise<void> {
-        if (isPresence(text) || isJoinShaped(text)) { return; }
+        if (isControlShaped(text)) { return; } // join / presence / heartbeat ping-pong — never encrypted
         let frame: ReqFrame | ResFrame;
         try {
           const payload = await decryptFrame(key, room, text);
@@ -147,6 +158,7 @@ export function startRelayClient(options: RelayClientOptions): RelayClient {
       ws.addEventListener('open', () => {
         if (closed || socket !== ws) { ws.close(); return; }
         ws.send(JSON.stringify({ v: 1, t: 'join', room, role: 'engine' }));
+        startHeartbeat(ws);
         attempt = 0;
         connected = true;
         failureLogged = false;
@@ -165,6 +177,7 @@ export function startRelayClient(options: RelayClientOptions): RelayClient {
   return {
     async close() {
       closed = true;
+      stopHeartbeat();
       if (reconnectTimer !== null) {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;

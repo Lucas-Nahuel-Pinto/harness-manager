@@ -100,6 +100,41 @@ describe('handleFrame routing', () => {
   });
 });
 
+describe('heartbeat routing (design 2026-10-15)', () => {
+  const PING = JSON.stringify({ v: 1, t: 'ping' });
+  const PONG = JSON.stringify({ v: 1, t: 'pong' });
+
+  test('ping answers a pong to the sender only — never forwarded to other members', () => {
+    const room = new RoomLogic();
+    room.join('e1', 'engine', fakeMember().send);
+    room.join('u1', 'ui', fakeMember().send);
+    room.join('u2', 'ui', fakeMember().send);
+    expect(room.handleFrame('u1', PING)).toEqual([{ toId: 'u1', text: PONG }]);
+    expect(room.handleFrame('e1', PING)).toEqual([{ toId: 'e1', text: PONG }]);
+  });
+
+  test('a pong-shaped input from a client is dropped, not forwarded', () => {
+    const room = new RoomLogic();
+    room.join('e1', 'engine', fakeMember().send);
+    room.join('u1', 'ui', fakeMember().send);
+    expect(room.handleFrame('u1', PONG)).toEqual([]);
+    expect(room.handleFrame('e1', PONG)).toEqual([]);
+  });
+
+  test('a ping from an unknown member is dropped', () => {
+    const room = new RoomLogic();
+    room.join('e1', 'engine', fakeMember().send);
+    expect(room.handleFrame('ghost', PING)).toEqual([]);
+  });
+
+  test('presence-shaped input keeps being dropped alongside heartbeats', () => {
+    const room = new RoomLogic();
+    room.join('e1', 'engine', fakeMember().send);
+    room.join('u1', 'ui', fakeMember().send);
+    expect(room.handleFrame('u1', JSON.stringify({ v: 1, t: 'presence', members: [] }))).toEqual([]);
+  });
+});
+
 describe('single engine per room', () => {
   test('second engine supersedes the first and presence fires', () => {
     const room = new RoomLogic();

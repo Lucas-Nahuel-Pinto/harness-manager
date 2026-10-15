@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { decodePayload, encodePayload, isPresence, makeReqId, REQUEST_TIMEOUT_MS, RUN_TIMEOUT_MS, timeoutForPath } from '../src/online/protocol.ts';
+import { decodePayload, encodePayload, HEARTBEAT_MS, isControlShaped, isPresence, makeReqId, PING_FRAME, REQUEST_TIMEOUT_MS, RUN_TIMEOUT_MS, timeoutForPath } from '../src/online/protocol.ts';
 
 describe('makeReqId', () => {
   test('ids are unique', () => {
@@ -65,6 +65,30 @@ describe('isPresence', () => {
     expect(isPresence('not json')).toBe(false);
     expect(isPresence('"string"')).toBe(false);
     expect(isPresence('null')).toBe(false);
+  });
+});
+
+describe('heartbeat control frames (design 2026-10-15)', () => {
+  test('cadence constant + exact ping frame shape', () => {
+    expect(HEARTBEAT_MS).toBe(25_000);
+    expect(PING_FRAME).toBe('{"v":1,"t":"ping"}');
+  });
+
+  test('isControlShaped detects every cleartext control frame', () => {
+    expect(isControlShaped(PING_FRAME)).toBe(true);
+    expect(isControlShaped(JSON.stringify({ v: 1, t: 'pong' }))).toBe(true);
+    expect(isControlShaped(JSON.stringify({ v: 1, t: 'join', room: 'abc', role: 'ui' }))).toBe(true);
+    expect(isControlShaped(JSON.stringify({ v: 1, t: 'presence', members: [] }))).toBe(true);
+  });
+
+  test('isControlShaped never matches payloads, envelopes or non-objects', () => {
+    expect(isControlShaped(JSON.stringify({ id: 'a1', method: 'GET', path: '/api/snapshot' }))).toBe(false);
+    expect(isControlShaped(JSON.stringify({ id: 'a3', status: 200, body: null }))).toBe(false);
+    expect(isControlShaped(JSON.stringify({ v: 1, n: 'nonce', c: 'cipher' }))).toBe(false); // crypto envelope
+    expect(isControlShaped('"string"')).toBe(false);
+    expect(isControlShaped('null')).toBe(false);
+    expect(isControlShaped('[1,2]')).toBe(false);
+    expect(isControlShaped('not json')).toBe(false);
   });
 });
 
