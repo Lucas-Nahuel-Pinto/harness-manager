@@ -1,6 +1,6 @@
 # Relay Heartbeat (Keepalive) — Design
 
-**Date:** 2026-10-15 · **Status:** planned · **Scope:** harness-manager repo only (UI transport, engine relay client, relay RoomLogic)
+**Date:** 2026-10-15 · **Status:** implemented (2026-10-15 — engine `a35cf04`) · **Scope:** harness-manager repo only (UI transport, engine relay client, relay RoomLogic)
 **Amends:** `2026-10-09-harness-manager-online-design.md` (§6 control frames — the relay protocol gains cleartext ping/pong) and `2026-10-09-online-mode-implementation-plan.md` §Risks ("no polling heartbeat in v1") — the v1 decision is reversed after field reports of ~60s idle disconnects.
 
 ## 1. Problem
