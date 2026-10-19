@@ -54,7 +54,8 @@ function listFilesIn(dir: string): string[] {
 function inferTier(skillDir: string, dirName: string, hasUpstreamMarker: boolean): SkillTier {
   if (dirName.includes('.agents/')) { return 'T3'; }
   if (hasUpstreamMarker) { return 'T2'; }
-  return skillDir.includes('.claude') ? 'T1' : 'T3';
+  if (skillDir.includes('.claude') || skillDir.includes('.opencode')) { return 'T1'; }
+  return 'T3';
 }
 
 export function scanSkills(root: string, skillDirs: string[], warnings: string[]): SkillEl[] {

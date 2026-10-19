@@ -31,7 +31,7 @@ export function loadManifest(root: string): ManifestResult {
 }
 
 export const CONVENTION = {
-  skillDirs: ['.claude/skills', '.agents/skills'],
+  skillDirs: ['.opencode/skills', '.claude/skills', '.agents/skills'],
   commandDirs: ['.claude/commands'],
   agentDirs: [
     { dir: '.opencode/agents', host: 'opencode' as const },
